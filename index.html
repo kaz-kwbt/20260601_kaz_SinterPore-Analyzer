@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SinterPore-Analyzer</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Material Icons Round -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- JSZip Library for fallback batch downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body class="theme-dark">
+    <div class="app-container" id="app-container" data-active-page="general">
+        
+        <!-- TOP HEADER BAR -->
+        <header class="app-header">
+            <button class="icon-btn" id="menu-toggle-btn" title="Toggle Menu">
+                <span class="material-icons-round">menu</span>
+            </button>
+            <div class="app-title-group">
+                <span class="app-logo-icon material-icons-round">blur_circular</span>
+                <h1 class="app-title">SinterPore Analyzer</h1>
+                <span class="app-version">v1.0.0</span>
+            </div>
+            <div class="header-divider"></div>
+            <div class="active-page-title" id="header-page-title" data-i18n="page_general_title">その他設定</div>
+        </header>
+
+        <!-- LEFT DRAWER / NAVIGATION -->
+        <aside class="nav-drawer" id="nav-drawer">
+            <div class="drawer-header">
+                <span class="drawer-title" data-i18n="navigation">ナビゲーション</span>
+                <button class="icon-btn" id="close-drawer-btn" title="Close Drawer">
+                    <span class="material-icons-round">chevron_left</span>
+                </button>
+            </div>
+            <nav class="drawer-nav">
+                <a href="#" class="nav-item active" data-page="general">
+                    <span class="material-icons-round">settings</span>
+                    <span class="nav-text" data-i18n="nav_general">その他設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="scale">
+                    <span class="material-icons-round">straighten</span>
+                    <span class="nav-text" data-i18n="nav_scale">スケール設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="roi">
+                    <span class="material-icons-round">crop_free</span>
+                    <span class="nav-text" data-i18n="nav_roi">ROI設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="noise">
+                    <span class="material-icons-round">filter_b_and_w</span>
+                    <span class="nav-text" data-i18n="nav_noise">ノイズ除去</span>
+                </a>
+                <a href="#" class="nav-item" data-page="binarization">
+                    <span class="material-icons-round">contrast</span>
+                    <span class="nav-text" data-i18n="nav_binarize">2値化設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="limit">
+                    <span class="material-icons-round">view_in_ar</span>
+                    <span class="nav-text" data-i18n="nav_limit">下限面積設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="batch">
+                    <span class="material-icons-round">layers</span>
+                    <span class="nav-text" data-i18n="nav_batch">一括処理</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- CENTER PREVIEW PANEL -->
+        <main class="preview-panel" id="preview-panel">
+            <div class="preview-card glass-panel">
+                <!-- Drag and Drop Overlay Zone -->
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-content">
+                        <span class="material-icons-round drop-icon">cloud_upload</span>
+                        <p class="drop-text" data-i18n="drop_message">画像をここにドラッグ＆ドロップ</p>
+                    </div>
+                </div>
+
+                <div class="preview-canvas-container" id="canvas-container">
+                    <canvas id="base-canvas"></canvas>
+                    <canvas id="overlay-canvas"></canvas>
+                    <div class="canvas-placeholder" id="canvas-placeholder">
+                        <span class="material-icons-round placeholder-icon">image</span>
+                        <p data-i18n="load_image_hint">右パネルから画像を読み込むか、ここにドロップしてください。</p>
+                    </div>
+                </div>
+
+                <!-- Canvas Control Bar -->
+                <div class="canvas-controls">
+                    <button class="ctrl-btn" id="btn-zoom-in" title="Zoom In"><span class="material-icons-round">zoom_in</span></button>
+                    <button class="ctrl-btn" id="btn-zoom-out" title="Zoom Out"><span class="material-icons-round">zoom_out</span></button>
+                    <button class="ctrl-btn" id="btn-zoom-fit" title="Fit Window"><span class="material-icons-round">fit_screen</span></button>
+                    <button class="ctrl-btn" id="btn-zoom-reset" title="Actual Size"><span class="material-icons-round">center_focus_strong</span></button>
+                    <div class="zoom-level" id="zoom-text">100%</div>
+                    <div class="mouse-pos" id="coords-text">X: --, Y: --</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR (SETTINGS & RESULTS) -->
+        <aside class="settings-sidebar scrollbar-styled">
+            <div class="sidebar-wrapper">
+                
+                <!-- TOP COMMON ACTIONS PANEL (Except on Batch page, where Image Load is hidden via JS) -->
+                <div class="sidebar-card glass-panel" id="common-load-card">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">folder_open</span>
+                        <h2 data-i18n="header_io">データ入出力</h2>
+                    </div>
+                    <div class="card-content io-buttons-grid">
+                        <button class="action-btn btn-primary" id="btn-load-img">
+                            <span class="material-icons-round">photo_size_select_actual</span>
+                            <span data-i18n="btn_load_image">画像読込</span>
+                        </button>
+                        <button class="action-btn" id="btn-load-config">
+                            <span class="material-icons-round">settings_backup_restore</span>
+                            <span data-i18n="btn_load_settings">設定読込</span>
+                        </button>
+                        <button class="action-btn" id="btn-save-config">
+                            <span class="material-icons-round">save</span>
+                            <span data-i18n="btn_save_settings_as">設定別名保存</span>
+                        </button>
+                    </div>
+                    <div class="image-info-bar hidden" id="loaded-image-info">
+                        <span class="info-label" data-i18n="loaded_file">読込中:</span>
+                        <span class="info-value text-truncate" id="loaded-file-name">--</span>
+                    </div>
+                </div>
+
+                <!-- PAGE 1: GENERAL SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="general">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">language</span>
+                        <h2 data-i18n="header_language">言語設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group language-select">
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="ja" checked>
+                                <span class="custom-radio"></span>
+                                <span>日本語</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="en">
+                                <span class="custom-radio"></span>
+                                <span>English</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="zh">
+                                <span class="custom-radio"></span>
+                                <span>中文 (简体)</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">history</span>
+                        <h2 data-i18n="header_history">一括処理条件履歴</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <div class="table-container history-table-container">
+                            <table class="data-table" id="history-table">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="th_date">日付</th>
+                                        <th data-i18n="th_condition_name">条件名</th>
+                                        <th style="width: 60px;" data-i18n="th_action">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated via JS -->
+                                    <tr class="empty-row">
+                                        <td colspan="3" class="text-center" data-i18n="no_history">履歴はありません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 2: SCALE SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="scale">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">straighten</span>
+                        <h2 data-i18n="header_scale_condition">スケール処理条件</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="input-group">
+                            <label for="input-um-px" data-i18n="label_um_px">ピクセルあたりの長さ (μm/px)</label>
+                            <div class="number-input-wrapper">
+                                <input type="number" id="input-um-px" value="1.000" min="0.001" step="0.001">
+                                <div class="step-controls">
+                                    <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                    <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">analytics</span>
+                        <h2 data-i18n="header_scale_result">測定結果・計算</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="input-group mb-4">
+                            <label for="input-actual-length" data-i18n="label_actual_length">スケールバーの実際の長さ (μm)</label>
+                            <div class="number-input-wrapper">
+                                <input type="number" id="input-actual-length" value="10.000" min="0.001" step="1.000">
+                                <div class="step-controls">
+                                    <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                    <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="measure-info-box">
+                            <div class="measure-row">
+                                <span class="measure-label">dx:</span>
+                                <span class="measure-value" id="scale-dx">0 px</span>
+                                <button class="apply-measure-btn" data-axis="x" disabled><span data-i18n="btn_apply">適用</span></button>
+                            </div>
+                            <div class="measure-row">
+                                <span class="measure-label">dy:</span>
+                                <span class="measure-value" id="scale-dy">0 px</span>
+                                <button class="apply-measure-btn" data-axis="y" disabled><span data-i18n="btn_apply">適用</span></button>
+                            </div>
+                            <div class="measure-row highlighted">
+                                <span class="measure-label">d:</span>
+                                <span class="measure-value" id="scale-d">0 px</span>
+                                <button class="apply-measure-btn" data-axis="d" disabled><span data-i18n="btn_apply">適用</span></button>
+                            </div>
+                        </div>
+                        <p class="instruction-text" data-i18n="scale_instruction">
+                            ※ 画像プレビュー上でスケールバーの両端をクリック（またはドラッグ）してピクセル長さを読み取ります。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PAGE 3: ROI SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="roi">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_roi_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-roi-enable" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_roi_enable">ROI領域を表示する</span>
+                        </label>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">tune</span>
+                        <h2 data-i18n="header_roi_condition">ROI 範囲設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="grid-2x2">
+                            <div class="input-group">
+                                <label for="input-roi-x1" data-i18n="label_roi_x1">左上 X (px)</label>
+                                <input type="number" id="input-roi-x1" value="0" min="0" step="1">
+                            </div>
+                            <div class="input-group">
+                                <label for="input-roi-y1" data-i18n="label_roi_y1">左上 Y (px)</label>
+                                <input type="number" id="input-roi-y1" value="0" min="0" step="1">
+                            </div>
+                            <div class="input-group">
+                                <label for="input-roi-x2" data-i18n="label_roi_x2">右下 X (px)</label>
+                                <input type="number" id="input-roi-x2" value="100" min="1" step="1">
+                            </div>
+                            <div class="input-group">
+                                <label for="input-roi-y2" data-i18n="label_roi_y2">右下 Y (px)</label>
+                                <input type="number" id="input-roi-y2" value="100" min="1" step="1">
+                            </div>
+                        </div>
+                        <button class="action-btn w-100 mt-4" id="btn-roi-full">
+                            <span class="material-icons-round">fullscreen</span>
+                            <span data-i18n="btn_roi_full">画像全体に設定</span>
+                        </button>
+                        <p class="instruction-text" data-i18n="roi_instruction">
+                            ※ 画像上の半透明の緑色枠線をドラッグして移動、四隅のハンドルをドラッグしてサイズ調整ができます。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PAGE 4: NOISE REMOVAL SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="noise">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_noise_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-noise-enable" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
+                        </label>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">blur_on</span>
+                        <h2 data-i18n="header_noise_condition">ノイズ除去設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="input-group mb-4">
+                            <label for="select-noise-method" data-i18n="label_noise_method">ノイズ除去手法</label>
+                            <select id="select-noise-method">
+                                <option value="median" data-i18n="opt_median">メディアンフィルタ (推奨)</option>
+                                <option value="gaussian" data-i18n="opt_gaussian">ガウシアンフィルタ</option>
+                                <option value="none" data-i18n="opt_none">なし</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="noise-kernel-group">
+                            <label for="select-noise-kernel" data-i18n="label_noise_kernel">フィルタの強度 (窓サイズ)</label>
+                            <select id="select-noise-kernel">
+                                <option value="3">3 × 3 (弱)</option>
+                                <option value="5" selected>5 × 5 (中)</option>
+                                <option value="7">7 × 7 (強)</option>
+                            </select>
+                        </div>
+                        <p class="instruction-text" data-i18n="noise_instruction">
+                            ※ メディアンフィルタは輪郭をシャープに保ったまま高周波ノイズを取り除くため、焼結体の空隙検出に有効です。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PAGE 5: BINARIZATION SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="binarization">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_binarize_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container mb-3">
+                            <input type="checkbox" id="chk-bin-noise" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-bin-boundary" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_bin_boundary">2値化境界（輪郭）を表示する</span>
+                        </label>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">contrast</span>
+                        <h2 data-i18n="header_binarize_condition">2値化設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <!-- Channel Extraction Option -->
+                        <div class="input-group mb-4">
+                            <label for="select-bin-channel" data-i18n="label_channel">グレースケール変換チャネル</label>
+                            <select id="select-bin-channel">
+                                <option value="luminance" data-i18n="opt_luminance">輝度 (Luminance)</option>
+                                <option value="red">Red (赤色チャネル)</option>
+                                <option value="green">Green (緑色チャネル)</option>
+                                <option value="blue">Blue (青色チャネル)</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group mb-4">
+                            <label data-i18n="label_threshold_method">閾値算出方法</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="bin-method" value="fixed">
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_fixed">固定値</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="bin-method" value="otsu" checked>
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_otsu">Otsu法 × %</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Fixed Value Input -->
+                        <div class="input-group mb-4" id="group-bin-fixed">
+                            <label for="input-bin-fixed" data-i18n="label_fixed_val">2値化閾値 (0-255)</label>
+                            <div class="number-input-wrapper">
+                                <input type="number" id="input-bin-fixed" value="128" min="0" max="255" step="1">
+                                <div class="step-controls">
+                                    <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                    <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Otsu values -->
+                        <div id="group-bin-otsu">
+                            <div class="measure-info-box mb-4">
+                                <div class="measure-row">
+                                    <span class="measure-label" data-i18n="label_otsu_val">Otsu計算値:</span>
+                                    <span class="measure-value" id="otsu-calc-val">--</span>
+                                </div>
+                                <div class="measure-row highlighted">
+                                    <span class="measure-label" data-i18n="label_applied_threshold">適用閾値:</span>
+                                    <span class="measure-value" id="otsu-applied-val">--</span>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="input-bin-otsu-percent" data-i18n="label_otsu_percent">Otsu閾値係数 (%)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-bin-otsu-percent" value="100" min="1" max="500" step="1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 6: AREA LIMIT SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="limit">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_limit_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container mb-3">
+                            <input type="checkbox" id="chk-limit-noise" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
+                        </label>
+                        <label class="checkbox-container mb-3">
+                            <input type="checkbox" id="chk-limit-boundary" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_bin_boundary">2値化境界（輪郭）を表示する</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-limit-numbers" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_limit_numbers">プレビュー上にラベル番号を描画</span>
+                        </label>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">filter_alt</span>
+                        <h2 data-i18n="header_limit_condition">下限面積設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <!-- Solid Limit -->
+                        <div class="limit-input-block border-bottom pb-4 mb-4">
+                            <h3 class="block-title font-semibold text-blue" data-i18n="title_solid_limit">実体の下限面積 (白色部分)</h3>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-solid-px">下限画素数 (px)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-solid-px" value="50" min="0" step="1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="measure-row">
+                                <span class="measure-label" data-i18n="label_limit_area">下限面積:</span>
+                                <span class="measure-value" id="limit-solid-um2">0.000 μm²</span>
+                            </div>
+                            <div class="measure-row">
+                                <span class="measure-label" data-i18n="label_limit_diameter">下限径 (円相当):</span>
+                                <span class="measure-value" id="limit-solid-dia">0.000 μm</span>
+                            </div>
+                        </div>
+
+                        <!-- Void Limit -->
+                        <div class="limit-input-block pb-2">
+                            <h3 class="block-title font-semibold text-purple" data-i18n="title_void_limit">空隙の下限面積 (黒色部分)</h3>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-void-px">下限画素数 (px)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-void-px" value="50" min="0" step="1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="measure-row">
+                                <span class="measure-label" data-i18n="label_limit_area">下限面積:</span>
+                                <span class="measure-value" id="limit-void-um2">0.000 μm²</span>
+                            </div>
+                            <div class="measure-row">
+                                <span class="measure-label" data-i18n="label_limit_diameter">下限径 (円相当):</span>
+                                <span class="measure-value" id="limit-void-dia">0.000 μm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESULTS DATA TABLE -->
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">table_chart</span>
+                        <h2 data-i18n="header_results_list">検出コンポーネント一覧</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <div class="table-container results-table-container">
+                            <table class="data-table" id="results-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th data-i18n="th_type">種類</th>
+                                        <th data-i18n="th_limit">判定</th>
+                                        <th data-i18n="th_area">面積(μm²)</th>
+                                        <th data-i18n="th_dia">径(μm)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-row">
+                                        <td colspan="5" class="text-center" data-i18n="no_results">データがありません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 7: BATCH PROCESSING -->
+                <div class="sidebar-card glass-panel page-control" data-page="batch">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">playlist_play</span>
+                        <h2 data-i18n="header_batch_conditions">一括処理条件サマリー</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <div class="batch-summary-panel scrollbar-styled" id="batch-conditions-summary">
+                            <!-- Populated by JS -->
+                            <div class="summary-item">
+                                <span class="summary-lbl">μm/px:</span>
+                                <span class="summary-val" id="summary-um-px">1.000</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl">ROI:</span>
+                                <span class="summary-val" id="summary-roi">Full Image</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_noise">ノイズ除去:</span>
+                                <span class="summary-val" id="summary-noise">Median (5x5)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_bin">2値化:</span>
+                                <span class="summary-val" id="summary-bin">Otsu * 100%</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_limits">下限サイズ:</span>
+                                <span class="summary-val" id="summary-limits">Solid: 50px / Void: 50px</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">photo_library</span>
+                        <h2 data-i18n="header_batch_files">処理ファイルリスト</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <div class="table-container batch-table-container">
+                            <table class="data-table" id="batch-file-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th data-i18n="th_filename">ファイル名</th>
+                                        <th data-i18n="th_foldername">フォルダ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-row">
+                                        <td colspan="3" class="text-center" data-i18n="no_files">ファイルが追加されていません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="batch-list-actions">
+                            <button class="action-btn" id="btn-add-files">
+                                <span class="material-icons-round">add_to_photos</span>
+                                <span data-i18n="btn_add_files">ファイル追加</span>
+                            </button>
+                            <button class="action-btn" id="btn-add-folder">
+                                <span class="material-icons-round">create_new_folder</span>
+                                <span data-i18n="btn_add_folder">フォルダ追加</span>
+                            </button>
+                            <button class="action-btn hover-danger" id="btn-clear-files">
+                                <span class="material-icons-round">clear_all</span>
+                                <span data-i18n="btn_clear_list">クリア</span>
+                            </button>
+                        </div>
+                        <!-- Hidden Inputs for picking files/folders -->
+                        <input type="file" id="input-files-picker" multiple accept="image/*" class="hidden">
+                        <input type="file" id="input-folder-picker" webkitdirectory directory class="hidden">
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">save_alt</span>
+                        <h2 data-i18n="header_output_config">出力設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container mb-4">
+                            <input type="checkbox" id="chk-batch-labels" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_batch_labels">出力画像にラベル番号を描画する</span>
+                        </label>
+                        
+                        <div class="input-group mb-4">
+                            <label data-i18n="label_output_dir">出力保存先フォルダ</label>
+                            <div class="directory-picker-wrapper">
+                                <div class="directory-path-display text-truncate" id="display-output-path" data-i18n="zip_fallback_active">
+                                    [ZIPダウンロード (フォルダ選択なし)]
+                                </div>
+                                <button class="action-btn" id="btn-pick-output">
+                                    <span class="material-icons-round">folder</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="input-batch-notes" data-i18n="label_notes">一括処理ノート (自由入力)</label>
+                            <textarea id="input-batch-notes" rows="2" placeholder="メモを入力してください..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="card-content border-top pt-4">
+                        <button class="batch-run-btn w-100" id="btn-run-batch" disabled>
+                            <span class="material-icons-round">play_arrow</span>
+                            <span data-i18n="btn_run_batch">一括処理実行</span>
+                        </button>
+                        
+                        <div class="batch-progress-box hidden" id="batch-progress-box">
+                            <div class="progress-lbl">
+                                <span data-i18n="progress_label">処理中:</span>
+                                <span id="batch-progress-text">0 / 0</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" id="batch-progress-fill" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">terminal</span>
+                        <h2 data-i18n="header_log">処理ログ</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <pre class="log-terminal scrollbar-styled" id="log-terminal">Initializing SinterPore-Analyzer logger...</pre>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Hidden input for main single image loader -->
+    <input type="file" id="input-single-image" accept="image/*" class="hidden">
+    <!-- Hidden input for settings file import -->
+    <input type="file" id="input-config-loader" accept=".json" class="hidden">
+
+    <!-- External scripts -->
+    <script src="imageProcessor.js"></script>
+    <script src="fileSystem.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

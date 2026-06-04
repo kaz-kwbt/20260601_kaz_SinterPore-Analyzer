@@ -1,0 +1,308 @@
+/**
+ * SinterPore-Analyzer Image Processing Module
+ * Includes:
+ * - Grayscale Conversion (Luminance, R, G, B channels)
+ * - Median Filter (3x3, 5x5, 7x7)
+ * - Gaussian Blur (3x3, 5x5)
+ * - Otsu's Thresholding (and Otsu * percentage)
+ * - Connected Component Labeling (8-connectivity BFS) and Boundary extraction
+ */
+
+const ImageProcessor = {
+    /**
+     * Convert RGBA image data to a Grayscale Uint8Array
+     * @param {ImageData} imageData 
+     * @param {string} channel 'luminance' | 'red' | 'green' | 'blue'
+     * @returns {Uint8Array}
+     */
+    toGrayscale(imageData, channel = 'luminance') {
+        const data = imageData.data;
+        const len = data.length;
+        const gray = new Uint8Array(len / 4);
+        
+        if (channel === 'red') {
+            for (let i = 0, j = 0; i < len; i += 4, j++) {
+                gray[j] = data[i];
+            }
+        } else if (channel === 'green') {
+            for (let i = 0, j = 0; i < len; i += 4, j++) {
+                gray[j] = data[i + 1];
+            }
+        } else if (channel === 'blue') {
+            for (let i = 0, j = 0; i < len; i += 4, j++) {
+                gray[j] = data[i + 2];
+            }
+        } else { // luminance (ITU-R BT.601)
+            for (let i = 0, j = 0; i < len; i += 4, j++) {
+                gray[j] = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+            }
+        }
+        return gray;
+    },
+
+    /**
+     * Apply Median Filter to a grayscale array
+     * @param {Uint8Array} src 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} kSize 3 | 5 | 7
+     * @returns {Uint8Array}
+     */
+    medianFilter(src, W, H, kSize = 3) {
+        const dst = new Uint8Array(W * H);
+        const radius = Math.floor(kSize / 2);
+        const bufferSize = kSize * kSize;
+        const window = new Uint8Array(bufferSize);
+        
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                let count = 0;
+                
+                // Gather neighbors
+                for (let ky = -radius; ky <= radius; ky++) {
+                    const ny = Math.max(0, Math.min(H - 1, y + ky));
+                    const rowOffset = ny * W;
+                    for (let kx = -radius; kx <= radius; kx++) {
+                        const nx = Math.max(0, Math.min(W - 1, x + kx));
+                        window[count++] = src[rowOffset + nx];
+                    }
+                }
+                
+                // Sort window using standard insertion sort (highly optimized for small arrays)
+                for (let i = 1; i < count; i++) {
+                    const key = window[i];
+                    let j = i - 1;
+                    while (j >= 0 && window[j] > key) {
+                        window[j + 1] = window[j];
+                        j--;
+                    }
+                    window[j + 1] = key;
+                }
+                
+                dst[y * W + x] = window[Math.floor(count / 2)];
+            }
+        }
+        return dst;
+    },
+
+    /**
+     * Apply Gaussian Blur to a grayscale array
+     * @param {Uint8Array} src 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} kSize 3 | 5
+     * @returns {Uint8Array}
+     */
+    gaussianBlur(src, W, H, kSize = 3) {
+        const dst = new Uint8Array(W * H);
+        const radius = Math.floor(kSize / 2);
+        
+        let kernel, weightSum;
+        if (kSize === 3) {
+            // Standard integer approximations
+            kernel = [
+                1, 2, 1,
+                2, 4, 2,
+                1, 2, 1
+            ];
+            weightSum = 16;
+        } else { // 5x5
+            kernel = [
+                1,  4,  7,  4, 1,
+                4, 16, 26, 16, 4,
+                7, 26, 41, 26, 7,
+                4, 16, 26, 16, 4,
+                1,  4,  7,  4, 1
+            ];
+            weightSum = 273;
+        }
+        
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                let sum = 0;
+                let kIdx = 0;
+                
+                for (let ky = -radius; ky <= radius; ky++) {
+                    const ny = Math.max(0, Math.min(H - 1, y + ky));
+                    const rowOffset = ny * W;
+                    for (let kx = -radius; kx <= radius; kx++) {
+                        const nx = Math.max(0, Math.min(W - 1, x + kx));
+                        sum += src[rowOffset + nx] * kernel[kIdx++];
+                    }
+                }
+                dst[y * W + x] = Math.round(sum / weightSum);
+            }
+        }
+        return dst;
+    },
+
+    /**
+     * Calculate Otsu's threshold value
+     * @param {Uint8Array} src 
+     * @returns {number} threshold value between 0 and 255
+     */
+    calculateOtsuThreshold(src) {
+        const len = src.length;
+        const hist = new Int32Array(256);
+        
+        // Build histogram
+        for (let i = 0; i < len; i++) {
+            hist[src[i]]++;
+        }
+        
+        let total = len;
+        let sum = 0;
+        for (let t = 0; t < 256; t++) {
+            sum += t * hist[t];
+        }
+        
+        let sumB = 0;
+        let wB = 0;
+        let wF = 0;
+        
+        let varMax = 0;
+        let threshold = 128; // Default fallback
+        
+        for (let t = 0; t < 256; t++) {
+            wB += hist[t];               // Weight Background
+            if (wB === 0) continue;
+            
+            wF = total - wB;             // Weight Foreground
+            if (wF === 0) break;
+            
+            sumB += t * hist[t];
+            
+            const mB = sumB / wB;            // Mean Background
+            const mF = (sum - sumB) / wF;    // Mean Foreground
+            
+            // Calculate Between Class Variance
+            const varBetween = wB * wF * (mB - mF) * (mB - mF);
+            
+            if (varBetween > varMax) {
+                varMax = varBetween;
+                threshold = t;
+            }
+        }
+        return threshold;
+    },
+
+    /**
+     * Binarize grayscale array
+     * @param {Uint8Array} src 
+     * @param {number} threshold 
+     * @returns {Uint8Array} 0 or 255
+     */
+    binarize(src, threshold) {
+        const len = src.length;
+        const dst = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            dst[i] = src[i] >= threshold ? 255 : 0;
+        }
+        return dst;
+    },
+
+    /**
+     * Connected Component Labeling using 8-connectivity BFS.
+     * Extracts boundaries and geometrical features.
+     * @param {Uint8Array} binary 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} target 0 (void) | 255 (solid)
+     * @returns {Array<Object>} list of components
+     */
+    labelComponents(binary, W, H, target) {
+        const visited = new Uint8Array(W * H);
+        const components = [];
+        let labelCounter = 1;
+        
+        // Pre-allocated flat queue for BFS to avoid GC overhead
+        const queue = new Int32Array(W * H);
+        
+        // 8-neighbor offsets
+        const dx8 = [-1,  0,  1, -1, 1, -1, 0, 1];
+        const dy8 = [-1, -1, -1,  0, 0,  1, 1, 1];
+        
+        for (let y = 0; y < H; y++) {
+            const yOffset = y * W;
+            for (let x = 0; x < W; x++) {
+                const startIdx = yOffset + x;
+                
+                if (visited[startIdx] === 0 && binary[startIdx] === target) {
+                    // Start BFS
+                    let head = 0;
+                    let tail = 0;
+                    
+                    queue[tail++] = startIdx;
+                    visited[startIdx] = 1;
+                    
+                    let pixelsCount = 0;
+                    let xmin = x, xmax = x, ymin = y, ymax = y;
+                    let sumX = 0, sumY = 0;
+                    const boundaryCoords = []; // flat array of [x, y, x, y...]
+                    
+                    while (head < tail) {
+                        const currIdx = queue[head++];
+                        const cx = currIdx % W;
+                        const cy = Math.floor(currIdx / W);
+                        
+                        pixelsCount++;
+                        sumX += cx;
+                        sumY += cy;
+                        
+                        if (cx < xmin) xmin = cx;
+                        if (cx > xmax) xmax = cx;
+                        if (cy < ymin) ymin = cy;
+                        if (cy > ymax) ymax = cy;
+                        
+                        // Check if boundary pixel: bordering opposite color or ROI edges
+                        let isBoundary = false;
+                        if (cx === 0 || cx === W - 1 || cy === 0 || cy === H - 1) {
+                            isBoundary = true;
+                        } else {
+                            if (binary[currIdx - 1] !== target ||
+                                binary[currIdx + 1] !== target ||
+                                binary[currIdx - W] !== target ||
+                                binary[currIdx + W] !== target) {
+                                isBoundary = true;
+                            }
+                        }
+                        
+                        if (isBoundary) {
+                            boundaryCoords.push(cx, cy);
+                        }
+                        
+                        // Visit 8 neighbors
+                        for (let n = 0; n < 8; n++) {
+                            const nx = cx + dx8[n];
+                            const ny = cy + dy8[n];
+                            
+                            if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+                                const nIdx = ny * W + nx;
+                                if (visited[nIdx] === 0 && binary[nIdx] === target) {
+                                    visited[nIdx] = 1;
+                                    queue[tail++] = nIdx;
+                                }
+                            }
+                        }
+                    }
+                    
+                    components.push({
+                        id: labelCounter++,
+                        type: target === 255 ? 'solid' : 'void',
+                        pixels: pixelsCount,
+                        xmin,
+                        xmax,
+                        ymin,
+                        ymax,
+                        cx: sumX / pixelsCount,
+                        cy: sumY / pixelsCount,
+                        // Convert boundary list to TypedArray for performance
+                        boundary: new Int32Array(boundaryCoords)
+                    });
+                }
+            }
+        }
+        
+        return components;
+    }
+};
