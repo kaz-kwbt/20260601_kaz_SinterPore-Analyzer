@@ -251,6 +251,32 @@ const FileSystemHelper = {
     },
 
     /**
+     * Save settings config using showSaveFilePicker if available
+     */
+    async saveSettingsAsFile(config) {
+        if (!window.showSaveFilePicker) {
+            this.downloadJSON(`${config.name || 'settings'}_conditions.json`, config);
+            return;
+        }
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: `${config.name || 'settings'}_conditions.json`,
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(config, null, 2));
+            await writable.close();
+            return handle.name;
+        } catch (e) {
+            console.warn('Save file picker cancelled or failed:', e);
+            return null;
+        }
+    },
+
+    /**
      * Direct browser file download helper for settings JSON
      */
     downloadJSON(filename, obj) {

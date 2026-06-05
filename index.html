@@ -26,10 +26,8 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.0.0</span>
+                <span class="app-version">v1.1.0</span>
             </div>
-            <div class="header-divider"></div>
-            <div class="active-page-title" id="header-page-title" data-i18n="page_general_title">その他設定</div>
         </header>
 
         <!-- LEFT DRAWER / NAVIGATION -->
@@ -52,6 +50,10 @@
                 <a href="#" class="nav-item" data-page="roi">
                     <span class="material-icons-round">crop_free</span>
                     <span class="nav-text" data-i18n="nav_roi">ROI設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="grayscale">
+                    <span class="material-icons-round">filter_hdr</span>
+                    <span class="nav-text" data-i18n="nav_grayscale">グレースケール設定</span>
                 </a>
                 <a href="#" class="nav-item" data-page="noise">
                     <span class="material-icons-round">filter_b_and_w</span>
@@ -84,8 +86,10 @@
                 </div>
 
                 <div class="preview-canvas-container" id="canvas-container">
-                    <canvas id="base-canvas"></canvas>
-                    <canvas id="overlay-canvas"></canvas>
+                    <div id="canvas-wrapper">
+                        <canvas id="base-canvas"></canvas>
+                        <canvas id="overlay-canvas"></canvas>
+                    </div>
                     <div class="canvas-placeholder" id="canvas-placeholder">
                         <span class="material-icons-round placeholder-icon">image</span>
                         <p data-i18n="load_image_hint">右パネルから画像を読み込むか、ここにドロップしてください。</p>
@@ -108,31 +112,85 @@
         <aside class="settings-sidebar scrollbar-styled">
             <div class="sidebar-wrapper">
                 
-                <!-- TOP COMMON ACTIONS PANEL (Except on Batch page, where Image Load is hidden via JS) -->
+                <!-- PAGE TITLE CARD (Moved to top of sidebar) -->
+                <div class="sidebar-page-title-card glass-panel">
+                    <h1 class="sidebar-page-title" id="sidebar-page-title" data-i18n="page_general_title">その他設定</h1>
+                </div>
+                
+                <!-- TOP COMMON ACTIONS PANEL (Shared File & Config List Card) -->
                 <div class="sidebar-card glass-panel" id="common-load-card">
                     <div class="card-header">
-                        <span class="material-icons-round header-icon">folder_open</span>
-                        <h2 data-i18n="header_io">データ入出力</h2>
+                        <span class="material-icons-round header-icon">photo_library</span>
+                        <h2 data-i18n="header_batch_files">処理ファイルリスト</h2>
                     </div>
-                    <div class="card-content io-buttons-grid">
-                        <button class="action-btn btn-primary" id="btn-load-img">
-                            <span class="material-icons-round">photo_size_select_actual</span>
-                            <span data-i18n="btn_load_image">画像読込</span>
-                        </button>
-                        <button class="action-btn" id="btn-load-config">
-                            <span class="material-icons-round">settings_backup_restore</span>
-                            <span data-i18n="btn_load_settings">設定読込</span>
-                        </button>
-                        <button class="action-btn" id="btn-save-config">
-                            <span class="material-icons-round">save</span>
-                            <span data-i18n="btn_save_settings_as">設定別名保存</span>
-                        </button>
-                    </div>
-                    <div class="image-info-bar hidden" id="loaded-image-info">
-                        <span class="info-label" data-i18n="loaded_file">読込中:</span>
-                        <span class="info-value text-truncate" id="loaded-file-name">--</span>
+                    <div class="card-content">
+                        <!-- Shared File List Table -->
+                        <div class="table-container batch-table-container mb-3" style="max-height: 150px;">
+                            <table class="data-table" id="batch-file-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;"></th>
+                                        <th data-i18n="th_filename">ファイル名</th>
+                                        <th data-i18n="th_foldername">フォルダ絶対パス</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="empty-row">
+                                        <td colspan="3" class="text-center" data-i18n="no_files">ファイルが追加されていません。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- File Action Buttons -->
+                        <div class="batch-list-actions mb-3" style="padding:0; border-bottom:none; display:flex; gap:8px;">
+                            <button class="action-btn" id="btn-add-files" style="flex:1; padding:8px; font-size:11px;">
+                                <span class="material-icons-round" style="font-size:16px;">add_to_photos</span>
+                                <span data-i18n="btn_add_files">ファイル追加</span>
+                            </button>
+                            <button class="action-btn" id="btn-add-folder" style="flex:1; padding:8px; font-size:11px;">
+                                <span class="material-icons-round" style="font-size:16px;">create_new_folder</span>
+                                <span data-i18n="btn_add_folder">フォルダ追加</span>
+                            </button>
+                            <button class="action-btn hover-danger" id="btn-clear-files" style="flex:1; padding:8px; font-size:11px;">
+                                <span class="material-icons-round" style="font-size:16px;">clear_all</span>
+                                <span data-i18n="btn_clear_list">クリア</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Absolute Path Text Input -->
+                        <div class="input-group mb-3">
+                            <label for="input-folder-abs-path" data-i18n="label_folder_abs_path">入力フォルダ絶対パス (Local置き換え用)</label>
+                            <input type="text" id="input-folder-abs-path" placeholder="C:\Users\Kaz\Downloads\images" style="padding:6px 10px; font-size:12px;">
+                        </div>
+                        
+                        <!-- Settings Config Load / Save -->
+                        <div class="card-header border-top" style="padding: 12px 0 6px 0; border-bottom: none; display:flex; align-items:center; gap:6px;">
+                            <span class="material-icons-round header-icon" style="font-size:16px;">settings</span>
+                            <h2 data-i18n="header_config_io" style="font-size:11px; margin:0; text-transform:none;">処理条件設定管理</h2>
+                        </div>
+                        <div class="io-buttons-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                            <button class="action-btn" id="btn-load-config" style="padding:8px 10px; font-size:12px;">
+                                <span class="material-icons-round" style="font-size:16px;">settings_backup_restore</span>
+                                <span data-i18n="btn_load_settings">設定読込</span>
+                            </button>
+                            <button class="action-btn btn-primary" id="btn-save-config" style="padding:8px 10px; font-size:12px;">
+                                <span class="material-icons-round" style="font-size:16px;">save</span>
+                                <span data-i18n="btn_save_settings_as">設定別名保存</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Image Info Bar -->
+                        <div class="image-info-bar hidden" id="loaded-image-info" style="margin: 12px 0 0 0; padding:6px 10px;">
+                            <span class="info-label" data-i18n="loaded_file">読込中:</span>
+                            <span class="info-value text-truncate" id="loaded-file-name" style="max-width: 220px; font-size:11px;">--</span>
+                        </div>
                     </div>
                 </div>
+                
+                <!-- Hidden Inputs for picking files/folders -->
+                <input type="file" id="input-files-picker" multiple accept="image/*" class="hidden">
+                <input type="file" id="input-folder-picker" webkitdirectory directory class="hidden">
 
                 <!-- PAGE 1: GENERAL SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="general">
@@ -232,13 +290,13 @@
                                 <button class="apply-measure-btn" data-axis="y" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                             <div class="measure-row highlighted">
-                                <span class="measure-label">d:</span>
-                                <span class="measure-value" id="scale-d">0 px</span>
-                                <button class="apply-measure-btn" data-axis="d" disabled><span data-i18n="btn_apply">適用</span></button>
+                                <span class="measure-label">d (px):</span>
+                                <input type="number" id="input-scale-d-manual" value="0.0" min="0.1" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <button class="apply-measure-btn" data-axis="d" id="btn-apply-d-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                         </div>
                         <p class="instruction-text" data-i18n="scale_instruction">
-                            ※ 画像プレビュー上でスケールバーの両端をクリック（またはドラッグ）してピクセル長さを読み取ります。
+                            ※ 画像プレビュー上でスケールバーの両端の2点をクリックしてピクセル長さを読み取ります。
                         </p>
                     </div>
                 </div>
@@ -286,6 +344,40 @@
                         </button>
                         <p class="instruction-text" data-i18n="roi_instruction">
                             ※ 画像上の半透明の緑色枠線をドラッグして移動、四隅のハンドルをドラッグしてサイズ調整ができます。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PAGE 3.5: GRAYSCALE SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="grayscale">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_gray_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-gray-preview" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_gray_preview">グレースケール表示 ON/OFF</span>
+                        </label>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">filter_hdr</span>
+                        <h2 data-i18n="header_gray_condition">グレースケール変換設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="input-group">
+                            <label for="select-gray-channel" data-i18n="label_channel">グレースケール変換チャネル</label>
+                            <select id="select-gray-channel">
+                                <option value="luminance" data-i18n="opt_luminance">輝度 (Luminance)</option>
+                                <option value="red">Red (赤色チャネル)</option>
+                                <option value="green">Green (緑色チャネル)</option>
+                                <option value="blue">Blue (青色チャネル)</option>
+                            </select>
+                        </div>
+                        <p class="instruction-text" data-i18n="gray_instruction">
+                            ※ カラー画像を2値化する前に、輝度または特定の色彩情報を抽出してグレースケール化します。
                         </p>
                     </div>
                 </div>
@@ -355,16 +447,7 @@
                         <h2 data-i18n="header_binarize_condition">2値化設定</h2>
                     </div>
                     <div class="card-content">
-                        <!-- Channel Extraction Option -->
                         <div class="input-group mb-4">
-                            <label for="select-bin-channel" data-i18n="label_channel">グレースケール変換チャネル</label>
-                            <select id="select-bin-channel">
-                                <option value="luminance" data-i18n="opt_luminance">輝度 (Luminance)</option>
-                                <option value="red">Red (赤色チャネル)</option>
-                                <option value="green">Green (緑色チャネル)</option>
-                                <option value="blue">Blue (青色チャネル)</option>
-                            </select>
-                        </div>
 
                         <div class="input-group mb-4">
                             <label data-i18n="label_threshold_method">閾値算出方法</label>
@@ -506,11 +589,11 @@
                             <table class="data-table" id="results-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th data-i18n="th_type">種類</th>
-                                        <th data-i18n="th_limit">判定</th>
-                                        <th data-i18n="th_area">面積(μm²)</th>
-                                        <th data-i18n="th_dia">径(μm)</th>
+                                        <th class="text-right sortable" data-sort="id">ID <span class="sort-icon"></span></th>
+                                        <th class="sortable" data-sort="type">種類 <span class="sort-icon"></span></th>
+                                        <th class="sortable" data-sort="limit">判定 <span class="sort-icon"></span></th>
+                                        <th class="text-right sortable" data-sort="area">面積(um2) <span class="sort-icon"></span></th>
+                                        <th class="text-right sortable" data-sort="dia">径(um) <span class="sort-icon"></span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -526,76 +609,6 @@
                 <!-- PAGE 7: BATCH PROCESSING -->
                 <div class="sidebar-card glass-panel page-control" data-page="batch">
                     <div class="card-header">
-                        <span class="material-icons-round header-icon">playlist_play</span>
-                        <h2 data-i18n="header_batch_conditions">一括処理条件サマリー</h2>
-                    </div>
-                    <div class="card-content p-0">
-                        <div class="batch-summary-panel scrollbar-styled" id="batch-conditions-summary">
-                            <!-- Populated by JS -->
-                            <div class="summary-item">
-                                <span class="summary-lbl">μm/px:</span>
-                                <span class="summary-val" id="summary-um-px">1.000</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="summary-lbl">ROI:</span>
-                                <span class="summary-val" id="summary-roi">Full Image</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="summary-lbl" data-i18n="summary_noise">ノイズ除去:</span>
-                                <span class="summary-val" id="summary-noise">Median (5x5)</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="summary-lbl" data-i18n="summary_bin">2値化:</span>
-                                <span class="summary-val" id="summary-bin">Otsu * 100%</span>
-                            </div>
-                            <div class="summary-item">
-                                <span class="summary-lbl" data-i18n="summary_limits">下限サイズ:</span>
-                                <span class="summary-val" id="summary-limits">Solid: 50px / Void: 50px</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card-header border-top">
-                        <span class="material-icons-round header-icon">photo_library</span>
-                        <h2 data-i18n="header_batch_files">処理ファイルリスト</h2>
-                    </div>
-                    <div class="card-content p-0">
-                        <div class="table-container batch-table-container">
-                            <table class="data-table" id="batch-file-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 40px;"></th>
-                                        <th data-i18n="th_filename">ファイル名</th>
-                                        <th data-i18n="th_foldername">フォルダ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="empty-row">
-                                        <td colspan="3" class="text-center" data-i18n="no_files">ファイルが追加されていません。</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="batch-list-actions">
-                            <button class="action-btn" id="btn-add-files">
-                                <span class="material-icons-round">add_to_photos</span>
-                                <span data-i18n="btn_add_files">ファイル追加</span>
-                            </button>
-                            <button class="action-btn" id="btn-add-folder">
-                                <span class="material-icons-round">create_new_folder</span>
-                                <span data-i18n="btn_add_folder">フォルダ追加</span>
-                            </button>
-                            <button class="action-btn hover-danger" id="btn-clear-files">
-                                <span class="material-icons-round">clear_all</span>
-                                <span data-i18n="btn_clear_list">クリア</span>
-                            </button>
-                        </div>
-                        <!-- Hidden Inputs for picking files/folders -->
-                        <input type="file" id="input-files-picker" multiple accept="image/*" class="hidden">
-                        <input type="file" id="input-folder-picker" webkitdirectory directory class="hidden">
-                    </div>
-
-                    <div class="card-header border-top">
                         <span class="material-icons-round header-icon">save_alt</span>
                         <h2 data-i18n="header_output_config">出力設定</h2>
                     </div>
@@ -621,6 +634,40 @@
                         <div class="input-group">
                             <label for="input-batch-notes" data-i18n="label_notes">一括処理ノート (自由入力)</label>
                             <textarea id="input-batch-notes" rows="2" placeholder="メモを入力してください..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">playlist_play</span>
+                        <h2 data-i18n="header_batch_conditions">一括処理条件サマリー</h2>
+                    </div>
+                    <div class="card-content p-0">
+                        <div class="batch-summary-panel scrollbar-styled" id="batch-conditions-summary">
+                            <!-- Populated by JS -->
+                            <div class="summary-item">
+                                <span class="summary-lbl">μm/px:</span>
+                                <span class="summary-val" id="summary-um-px">1.000</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl">ROI:</span>
+                                <span class="summary-val" id="summary-roi">Full Image</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_gray">グレースケール:</span>
+                                <span class="summary-val" id="summary-gray">輝度 (Luminance)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_noise">ノイズ除去:</span>
+                                <span class="summary-val" id="summary-noise">Median (5x5)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_bin">2値化:</span>
+                                <span class="summary-val" id="summary-bin">Otsu * 100%</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_limits">下限サイズ:</span>
+                                <span class="summary-val" id="summary-limits">Solid: 50px / Void: 50px</span>
+                            </div>
                         </div>
                     </div>
 

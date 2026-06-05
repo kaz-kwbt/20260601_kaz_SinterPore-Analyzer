@@ -18,6 +18,7 @@ const I18n = {
             nav_general: "その他設定",
             nav_scale: "スケール設定",
             nav_roi: "ROI設定",
+            nav_grayscale: "グレースケール設定",
             nav_noise: "ノイズ除去",
             nav_binarize: "2値化設定",
             nav_limit: "下限面積設定",
@@ -27,10 +28,17 @@ const I18n = {
             page_general_title: "その他設定",
             page_scale_title: "スケール設定",
             page_roi_title: "ROI設定",
+            page_grayscale_title: "グレースケール設定",
             page_noise_title: "ノイズ除去設定",
             page_binarize_title: "2値化設定",
             page_limit_title: "下限面積設定",
             page_batch_title: "一括処理",
+            header_gray_display: "表示設定",
+            chk_gray_preview: "グレースケール表示 ON/OFF",
+            header_gray_condition: "グレースケール変換設定",
+            gray_instruction: "※ カラー画像を2値化する前に、輝度または特定の色彩情報を抽出してグレースケール化します。",
+            summary_gray: "グレースケール:",
+            label_folder_abs_path: "入力フォルダ絶対パス (Local置き換え用)",
             header_io: "データ入出力",
             btn_load_image: "画像読込",
             btn_load_settings: "設定読込",
@@ -116,6 +124,7 @@ const I18n = {
             nav_general: "General Settings",
             nav_scale: "Scale Settings",
             nav_roi: "ROI Settings",
+            nav_grayscale: "Grayscale Settings",
             nav_noise: "Noise Removal",
             nav_binarize: "Binarization",
             nav_limit: "Lower Limit Area",
@@ -125,10 +134,17 @@ const I18n = {
             page_general_title: "General Settings",
             page_scale_title: "Scale Settings",
             page_roi_title: "ROI Settings",
+            page_grayscale_title: "Grayscale Settings",
             page_noise_title: "Noise Removal",
             page_binarize_title: "Binarization",
             page_limit_title: "Lower Limit Area",
             page_batch_title: "Batch Processing",
+            header_gray_display: "Display Settings",
+            chk_gray_preview: "Grayscale Preview ON/OFF",
+            header_gray_condition: "Grayscale Conversion Settings",
+            gray_instruction: "※ Extracts luminance or color information to grayscale the image before binarization.",
+            summary_gray: "Grayscale:",
+            label_folder_abs_path: "Input Folder Absolute Path",
             header_io: "Data Input/Output",
             btn_load_image: "Load Image",
             btn_load_settings: "Load Settings",
@@ -214,6 +230,7 @@ const I18n = {
             nav_general: "其他设置",
             nav_scale: "比例尺设置",
             nav_roi: "ROI设置",
+            nav_grayscale: "灰度设置",
             nav_noise: "降噪设置",
             nav_binarize: "二值化设置",
             nav_limit: "下限面积设置",
@@ -223,10 +240,17 @@ const I18n = {
             page_general_title: "其他设置",
             page_scale_title: "比例尺设置",
             page_roi_title: "ROI设置",
+            page_grayscale_title: "灰度设置",
             page_noise_title: "降噪设置",
             page_binarize_title: "二值化设置",
             page_limit_title: "下限面积设置",
             page_batch_title: "批量处理",
+            header_gray_display: "显示设置",
+            chk_gray_preview: "灰度显示 ON/OFF",
+            header_gray_condition: "灰度转换设置",
+            gray_instruction: "※ 在二值化之前，提取亮度或色彩通道以转化为灰度图。",
+            summary_gray: "灰度:",
+            label_folder_abs_path: "输入文件夹绝对路径",
             header_io: "数据导入/导出",
             btn_load_image: "导入图片",
             btn_load_settings: "导入设置",
@@ -355,7 +379,8 @@ const App = {
         channel: 'luminance',
         method: 'otsu',
         fixedValue: 128,
-        otsuPercent: 100
+        otsuPercent: 100,
+        grayscalePreview: true
     },
     
     // Component size filters (px)
@@ -369,6 +394,11 @@ const App = {
     imageName: '',
     imageFolder: 'Local File',
     imageElement: null,
+    currentLoadedFile: null,
+    
+    // Directory paths
+    inputDirectoryPath: '',
+    outputFolder: '',
     
     // Canvas dimensions
     originalWidth: 0,
@@ -381,16 +411,32 @@ const App = {
     components: [],
     selectedCompId: null,
     
+    // Caching processed arrays for instant redrawing
+    grayArray: null,
+    noiseArray: null,
+    binArray: null,
+    
     // Interactive canvas states
     dragMode: null, // 'move' | 'resize'
     draggedCorner: -1, // 0: TL, 1: TR, 2: BR, 3: BL
     scaleStart: null,
     scaleEnd: null,
-    isDrawingScale: false,
+    isMeasuringScale: false, // 2-point click measuring
+    
+    // Panning states
+    isPanning: false,
+    isPanningCandidate: false,
+    panStart: { x: 0, y: 0 },
+    scrollStart: { x: 0, y: 0 },
     
     // Batch processing states
     batchFiles: [], // list of File objects with custom path
     outputDirectoryHandle: null,
+    
+    // Results table sort states
+    sortColumn: 'id',
+    sortDirection: 'asc',
+    activeHistoryIndex: null,
     
     // --- INIT ---
     init() {
@@ -398,6 +444,13 @@ const App = {
         this.baseCtx = this.baseCanvas.getContext('2d');
         this.overlayCanvas = document.getElementById('overlay-canvas');
         this.overlayCtx = this.overlayCanvas.getContext('2d');
+        this.canvasWrapper = document.getElementById('canvas-wrapper');
+        
+        this.inputDirectoryPath = localStorage.getItem('sinterpore_input_dir_path') || '';
+        const absPathInput = document.getElementById('input-folder-abs-path');
+        if (absPathInput) {
+            absPathInput.value = this.inputDirectoryPath;
+        }
         
         this.loadSettingsFromStorage();
         this.bindEvents();
@@ -414,10 +467,12 @@ const App = {
         const radio = document.querySelector(`input[name="ui-lang"][value="${lang}"]`);
         if (radio) radio.checked = true;
         
-        // Update header page title
-        const headerTitle = document.getElementById('header-page-title');
-        headerTitle.setAttribute('data-i18n', `page_${this.activePage}_title`);
-        headerTitle.innerText = I18n.get(`page_${this.activePage}_title`);
+        // Update sidebar page title
+        const sidebarTitle = document.getElementById('sidebar-page-title');
+        if (sidebarTitle) {
+            sidebarTitle.setAttribute('data-i18n', `page_${this.activePage}_title`);
+            sidebarTitle.innerText = I18n.get(`page_${this.activePage}_title`);
+        }
     },
 
     // --- SETTINGS LOCAL STORAGE ---
@@ -462,7 +517,8 @@ const App = {
                 channel: this.binarization.channel,
                 method: this.binarization.method,
                 fixedValue: this.binarization.fixedValue,
-                otsuPercent: this.binarization.otsuPercent
+                otsuPercent: this.binarization.otsuPercent,
+                grayscalePreview: this.binarization.grayscalePreview
             },
             limit: {
                 solidPx: this.limit.solidPx,
@@ -470,7 +526,8 @@ const App = {
             },
             batch: {
                 labelNumbersEnabled: document.getElementById('chk-batch-labels').checked,
-                notes: document.getElementById('input-batch-notes').value
+                notes: document.getElementById('input-batch-notes').value,
+                outputFolder: this.outputFolder
             }
         };
     },
@@ -501,6 +558,7 @@ const App = {
             this.binarization.method = config.binarization.method;
             this.binarization.fixedValue = config.binarization.fixedValue;
             this.binarization.otsuPercent = config.binarization.otsuPercent;
+            this.binarization.grayscalePreview = config.binarization.grayscalePreview !== undefined ? config.binarization.grayscalePreview : true;
         }
         if (config.limit) {
             this.limit.solidPx = config.limit.solidPx;
@@ -510,6 +568,17 @@ const App = {
         if (config.batch) {
             document.getElementById('chk-batch-labels').checked = !!config.batch.labelNumbersEnabled;
             document.getElementById('input-batch-notes').value = config.batch.notes || '';
+            this.outputFolder = config.batch.outputFolder || '';
+            const display = document.getElementById('display-output-path');
+            if (display) {
+                if (this.outputFolder) {
+                    display.innerText = this.outputFolder;
+                    display.classList.remove('zip-active');
+                } else {
+                    display.innerText = I18n.get('zip_fallback_active');
+                    display.classList.add('zip-active');
+                }
+            }
         }
         
         this.updateUIInputs();
@@ -542,7 +611,15 @@ const App = {
         document.getElementById('select-noise-method').value = this.noise.method;
         document.getElementById('select-noise-kernel').value = this.noise.kernelSize;
         
-        document.getElementById('select-bin-channel').value = this.binarization.channel;
+        const selectGrayCh = document.getElementById('select-gray-channel');
+        if (selectGrayCh) {
+            selectGrayCh.value = this.binarization.channel;
+        }
+        const grayPreviewChk = document.getElementById('chk-gray-preview');
+        if (grayPreviewChk) {
+            grayPreviewChk.checked = this.binarization.grayscalePreview;
+        }
+        
         document.querySelector(`input[name="bin-method"][value="${this.binarization.method}"]`).checked = true;
         document.getElementById('input-bin-fixed').value = this.binarization.fixedValue;
         document.getElementById('input-bin-otsu-percent').value = this.binarization.otsuPercent;
@@ -588,6 +665,19 @@ const App = {
             : I18n.get('btn_roi_full');
         document.getElementById('summary-roi').innerText = roiText;
         
+        const selectGrayCh = document.getElementById('select-gray-channel');
+        let grayChannelText = this.binarization.channel;
+        if (selectGrayCh) {
+            const opt = selectGrayCh.querySelector(`option[value="${this.binarization.channel}"]`);
+            if (opt) {
+                grayChannelText = opt.innerText;
+            }
+        }
+        const summaryGray = document.getElementById('summary-gray');
+        if (summaryGray) {
+            summaryGray.innerText = grayChannelText;
+        }
+        
         const noiseText = this.noise.enabled 
             ? `${this.noise.method === 'median' ? 'Median' : 'Gaussian'} (${this.noise.kernelSize}x${this.noise.kernelSize})` 
             : 'None';
@@ -598,7 +688,13 @@ const App = {
             : `Otsu * ${this.binarization.otsuPercent}%`;
         document.getElementById('summary-bin').innerText = binText;
         
-        document.getElementById('summary-limits').innerText = `Solid: ${this.limit.solidPx}px / Void: ${this.limit.voidPx}px`;
+        const scaleSq = this.umPerPx * this.umPerPx;
+        const solidArea = this.limit.solidPx * scaleSq;
+        const solidDia = 2 * Math.sqrt(solidArea / Math.PI);
+        const voidArea = this.limit.voidPx * scaleSq;
+        const voidDia = 2 * Math.sqrt(voidArea / Math.PI);
+        
+        document.getElementById('summary-limits').innerText = `Solid: ${solidDia.toFixed(3)}μm / Void: ${voidDia.toFixed(3)}μm`;
     },
 
     // --- UI EVENT BINDINGS ---
@@ -613,13 +709,12 @@ const App = {
                 this.activePage = item.getAttribute('data-page');
                 document.getElementById('app-container').setAttribute('data-active-page', this.activePage);
                 
-                // Set Header page title
-                const headerTitle = document.getElementById('header-page-title');
-                headerTitle.setAttribute('data-i18n', `page_${this.activePage}_title`);
-                headerTitle.innerText = I18n.get(`page_${this.activePage}_title`);
-                
-                // Hide IO buttons grid on Batch processing page
-                document.getElementById('common-load-card').classList.toggle('hidden', this.activePage === 'batch');
+                // Set Sidebar page title
+                const sidebarTitle = document.getElementById('sidebar-page-title');
+                if (sidebarTitle) {
+                    sidebarTitle.setAttribute('data-i18n', `page_${this.activePage}_title`);
+                    sidebarTitle.innerText = I18n.get(`page_${this.activePage}_title`);
+                }
                 
                 // If opening ROI or Scale, reset drag states
                 this.dragMode = null;
@@ -648,9 +743,12 @@ const App = {
         });
         
         // Main Image Load buttons
-        document.getElementById('btn-load-img').addEventListener('click', () => {
-            document.getElementById('input-single-image').click();
-        });
+        const btnLoadImg = document.getElementById('btn-load-img');
+        if (btnLoadImg) {
+            btnLoadImg.addEventListener('click', () => {
+                document.getElementById('input-single-image').click();
+            });
+        }
         document.getElementById('input-single-image').addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
                 this.loadImage(e.target.files[0]);
@@ -676,11 +774,14 @@ const App = {
                 reader.readAsText(e.target.files[0]);
             }
         });
-        document.getElementById('btn-save-config').addEventListener('click', () => {
+        document.getElementById('btn-save-config').addEventListener('click', async () => {
             const name = prompt(I18n.currentLang === 'ja' ? '保存する設定の別名を入力してください：' : 'Enter name for settings backup:', 'custom_settings');
             if (name) {
                 const config = this.generateJSONConfigObject(name);
-                FileSystemHelper.downloadJSON(`${name}_conditions.json`, config);
+                const savedName = await FileSystemHelper.saveSettingsAsFile(config);
+                if (savedName) {
+                    this.logMessage(`Saved configuration as: ${savedName}`);
+                }
             }
         });
         
@@ -704,6 +805,21 @@ const App = {
         
         // Batch Processing interactions
         this.bindBatchEvents();
+
+        // Table sorting header click listeners
+        document.querySelectorAll('#results-table th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const col = th.getAttribute('data-sort');
+                if (this.sortColumn === col) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortColumn = col;
+                    this.sortDirection = 'asc';
+                }
+                this.updateSortHeadersUI();
+                this.renderResultsTable();
+            });
+        });
     },
 
     bindNumericSteppers() {
@@ -757,10 +873,9 @@ const App = {
                     pxLength = Math.abs(this.scaleEnd.x - this.scaleStart.x);
                 } else if (axis === 'y' && this.scaleStart && this.scaleEnd) {
                     pxLength = Math.abs(this.scaleEnd.y - this.scaleStart.y);
-                } else if (axis === 'd' && this.scaleStart && this.scaleEnd) {
-                    const dx = this.scaleEnd.x - this.scaleStart.x;
-                    const dy = this.scaleEnd.y - this.scaleStart.y;
-                    pxLength = Math.sqrt(dx * dx + dy * dy);
+                } else if (axis === 'd') {
+                    const manualInput = document.getElementById('input-scale-d-manual');
+                    pxLength = parseFloat(manualInput.value) || 0;
                 }
                 
                 if (pxLength > 0) {
@@ -781,12 +896,22 @@ const App = {
         });
         
         const bindRoiCoord = (id, field) => {
-            document.getElementById(id).addEventListener('change', (e) => {
+            const input = document.getElementById(id);
+            const handleInput = (e) => {
                 const val = parseInt(e.target.value) || 0;
                 this.roi[field] = Math.max(0, val);
                 this.updateBatchSummary();
-                if (this.imageLoaded) this.processImage();
+                this.redraw(); // Redraw green box instantly
+                this.debouncedProcessImage(); // Debounce heavy analysis
                 this.saveSettingsToStorage();
+            };
+            input.addEventListener('input', handleInput);
+            input.addEventListener('change', handleInput);
+            input.addEventListener('blur', () => {
+                if (this.processTimeout) {
+                    clearTimeout(this.processTimeout);
+                }
+                if (this.imageLoaded) this.processImage();
             });
         };
         bindRoiCoord('input-roi-x1', 'x1');
@@ -833,12 +958,16 @@ const App = {
             this.saveSettingsToStorage();
         });
         
-        // binarization
-        document.getElementById('select-bin-channel').addEventListener('change', (e) => {
-            this.binarization.channel = e.target.value;
-            if (this.imageLoaded) this.processImage();
-            this.saveSettingsToStorage();
-        });
+        // grayscale channel selection
+        const selectGrayCh = document.getElementById('select-gray-channel');
+        if (selectGrayCh) {
+            selectGrayCh.addEventListener('change', (e) => {
+                this.binarization.channel = e.target.value;
+                this.updateBatchSummary();
+                if (this.imageLoaded) this.processImage();
+                this.saveSettingsToStorage();
+            });
+        }
         
         document.querySelectorAll('input[name="bin-method"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
@@ -888,6 +1017,38 @@ const App = {
             if (this.imageLoaded) this.processImage();
             this.saveSettingsToStorage();
         });
+
+        // Grayscale settings
+        const grayPreviewChk = document.getElementById('chk-gray-preview');
+        if (grayPreviewChk) {
+            grayPreviewChk.addEventListener('change', (e) => {
+                this.binarization.grayscalePreview = e.target.checked;
+                this.redraw();
+                this.saveSettingsToStorage();
+            });
+        }
+
+        // Absolute folder path input
+        const absPathInput = document.getElementById('input-folder-abs-path');
+        if (absPathInput) {
+            absPathInput.addEventListener('input', (e) => {
+                this.inputDirectoryPath = e.target.value;
+                localStorage.setItem('sinterpore_input_dir_path', this.inputDirectoryPath);
+                this.renderBatchFilesTable();
+            });
+        }
+
+        // Scale manual input
+        const manualInput = document.getElementById('input-scale-d-manual');
+        if (manualInput) {
+            manualInput.addEventListener('input', () => {
+                const val = parseFloat(manualInput.value) || 0;
+                const btnApplyD = document.getElementById('btn-apply-d-measure');
+                if (btnApplyD) {
+                    btnApplyD.disabled = val <= 0;
+                }
+            });
+        }
     },
 
     // --- CANVAS ZOOM & INTERACTIVE DRAWING ---
@@ -898,10 +1059,16 @@ const App = {
         const width = this.originalWidth * this.zoomScale;
         const height = this.originalHeight * this.zoomScale;
         
-        this.baseCanvas.style.width = `${width}px`;
-        this.baseCanvas.style.height = `${height}px`;
-        this.overlayCanvas.style.width = `${width}px`;
-        this.overlayCanvas.style.height = `${height}px`;
+        if (this.canvasWrapper) {
+            this.canvasWrapper.style.width = `${width}px`;
+            this.canvasWrapper.style.height = `${height}px`;
+            this.canvasWrapper.classList.add('active');
+        } else {
+            this.baseCanvas.style.width = `${width}px`;
+            this.baseCanvas.style.height = `${height}px`;
+            this.overlayCanvas.style.width = `${width}px`;
+            this.overlayCanvas.style.height = `${height}px`;
+        }
         
         document.getElementById('zoom-text').innerText = `${Math.round(this.zoomScale * 100)}%`;
     },
@@ -937,18 +1104,22 @@ const App = {
     bindCanvasMouseEvents() {
         const container = document.getElementById('canvas-container');
         
+        container.addEventListener('wheel', (e) => {
+            if (!this.imageLoaded) return;
+            e.preventDefault();
+            const zoomStep = 0.05;
+            const factor = e.deltaY < 0 ? (1 + zoomStep) : (1 - zoomStep);
+            this.setZoom(this.zoomScale * factor);
+        }, { passive: false });
+        
         this.baseCanvas.addEventListener('mousedown', (e) => {
             if (!this.imageLoaded) return;
             const pt = this.getImgCoords(e);
             
-            if (this.activePage === 'scale') {
-                this.isDrawingScale = true;
-                this.scaleStart = pt;
-                this.scaleEnd = pt;
-                this.redraw();
-            } else if (this.activePage === 'roi' && this.roi.enabled) {
-                // Check if click is near a corner of the ROI
-                const handleRadius = 12 / this.zoomScale; // dynamic hit area based on zoom
+            // Check if ROI corner or box is dragged (only in ROI page)
+            let isROIDrag = false;
+            if (this.activePage === 'roi' && this.roi.enabled) {
+                const handleRadius = 12 / this.zoomScale; // hit area based on zoom
                 const corners = [
                     { x: this.roi.x1, y: this.roi.y1 }, // TL
                     { x: this.roi.x2, y: this.roi.y1 }, // TR
@@ -969,6 +1140,7 @@ const App = {
                 if (clickedCorner !== -1) {
                     this.dragMode = 'resize';
                     this.draggedCorner = clickedCorner;
+                    isROIDrag = true;
                 } else if (pt.x > this.roi.x1 && pt.x < this.roi.x2 && pt.y > this.roi.y1 && pt.y < this.roi.y2) {
                     this.dragMode = 'move';
                     this.dragStartOffset = {
@@ -977,7 +1149,15 @@ const App = {
                         w: this.roi.x2 - this.roi.x1,
                         h: this.roi.y2 - this.roi.y1
                     };
+                    isROIDrag = true;
                 }
+            }
+            
+            // If not dragging/resizing ROI, start panning candidate
+            if (!isROIDrag) {
+                this.isPanningCandidate = true;
+                this.panStart = { x: e.clientX, y: e.clientY };
+                this.scrollStart = { x: container.scrollLeft, y: container.scrollTop };
             }
         });
 
@@ -986,13 +1166,41 @@ const App = {
             const pt = this.getImgCoords(e);
             
             // Update coordinates label
-            document.getElementById('coords-text').innerText = `X: ${pt.x}, Y: ${pt.y}`;
+            const coordsText = document.getElementById('coords-text');
+            if (coordsText) {
+                coordsText.innerText = `X: ${pt.x}, Y: ${pt.y}`;
+            }
             
-            if (this.activePage === 'scale' && this.isDrawingScale) {
+            // 1. If currently panning
+            if (this.isPanning) {
+                const dx = e.clientX - this.panStart.x;
+                const dy = e.clientY - this.panStart.y;
+                container.scrollLeft = this.scrollStart.x - dx;
+                container.scrollTop = this.scrollStart.y - dy;
+                return;
+            }
+            
+            // 2. Check if we should upgrade panning candidate to active panning
+            if (this.isPanningCandidate) {
+                const dist = Math.hypot(e.clientX - this.panStart.x, e.clientY - this.panStart.y);
+                if (dist > 5) {
+                    this.isPanning = true;
+                    this.isPanningCandidate = false;
+                    container.style.cursor = 'grabbing';
+                    return;
+                }
+            }
+            
+            // 3. If drawing scale (following 2-point click first point)
+            if (this.activePage === 'scale' && this.isMeasuringScale) {
                 this.scaleEnd = pt;
                 this.updateScaleBarInfo();
                 this.redraw();
-            } else if (this.activePage === 'roi' && this.roi.enabled && this.dragMode) {
+                return;
+            }
+            
+            // 4. If ROI dragging
+            if (this.activePage === 'roi' && this.roi.enabled && this.dragMode) {
                 if (this.dragMode === 'resize') {
                     // Resize ROI corner
                     if (this.draggedCorner === 0) { // TL
@@ -1030,11 +1238,40 @@ const App = {
             }
         });
 
-        window.addEventListener('mouseup', () => {
-            if (this.isDrawingScale) {
-                this.isDrawingScale = false;
-                this.updateScaleBarInfo();
+        window.addEventListener('mouseup', (e) => {
+            // Restore cursor
+            container.style.cursor = '';
+            
+            // If was panning, stop
+            if (this.isPanning) {
+                this.isPanning = false;
+                return;
             }
+            
+            // If panning candidate was not upgraded, it counts as a click
+            if (this.isPanningCandidate) {
+                this.isPanningCandidate = false;
+                const pt = this.getImgCoords(e);
+                
+                if (this.activePage === 'scale') {
+                    if (!this.isMeasuringScale) {
+                        // First click
+                        this.scaleStart = pt;
+                        this.scaleEnd = null;
+                        this.isMeasuringScale = true;
+                        this.redraw();
+                    } else {
+                        // Second click
+                        this.scaleEnd = pt;
+                        this.isMeasuringScale = false;
+                        this.updateScaleBarInfo();
+                        this.redraw();
+                    }
+                } else if (this.activePage === 'limit' && this.imageLoaded) {
+                    this.handleComponentClick(pt);
+                }
+            }
+            
             if (this.dragMode) {
                 this.dragMode = null;
                 this.saveSettingsToStorage();
@@ -1042,6 +1279,85 @@ const App = {
                 this.processImage();
             }
         });
+    },
+
+    handleComponentClick(pt) {
+        const rx1 = this.roi.enabled ? this.roi.x1 : 0;
+        const ry1 = this.roi.enabled ? this.roi.y1 : 0;
+        const w = this.roi.enabled ? (this.roi.x2 - this.roi.x1) : this.originalWidth;
+        const h = this.roi.enabled ? (this.roi.y2 - this.roi.y1) : this.originalHeight;
+        
+        const rx = pt.x - rx1;
+        const ry = pt.y - ry1;
+        
+        if (rx >= 0 && rx < w && ry >= 0 && ry < h && this.binArray) {
+            const idx = ry * w + rx;
+            const targetVal = this.binArray[idx]; // 0 or 255
+            
+            // BFS to identify clicked connected region
+            const visited = new Uint8Array(w * h);
+            const queue = new Int32Array(w * h);
+            let head = 0, tail = 0;
+            
+            queue[tail++] = idx;
+            visited[idx] = 1;
+            
+            let count = 0;
+            let sumX = 0, sumY = 0;
+            
+            const dx8 = [-1, 0, 1, -1, 1, -1, 0, 1];
+            const dy8 = [-1, -1, -1, 0, 0, 1, 1, 1];
+            
+            while (head < tail) {
+                const curr = queue[head++];
+                const cx = curr % w;
+                const cy = Math.floor(curr / w);
+                count++;
+                sumX += cx;
+                sumY += cy;
+                
+                for (let i = 0; i < 8; i++) {
+                    const nx = cx + dx8[i];
+                    const ny = cy + dy8[i];
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        const nIdx = ny * w + nx;
+                        if (visited[nIdx] === 0 && this.binArray[nIdx] === targetVal) {
+                            visited[nIdx] = 1;
+                            queue[tail++] = nIdx;
+                        }
+                    }
+                }
+            }
+            
+            const cx = sumX / count;
+            const cy = sumY / count;
+            
+            // Find component with matching type, pixel count, and centroid
+            const type = targetVal === 255 ? 'solid' : 'void';
+            const matched = this.components.find(c => 
+                c.type === type &&
+                Math.abs(c.pixels - count) < 2 &&
+                Math.abs(c.cx - cx) < 0.1 &&
+                Math.abs(c.cy - cy) < 0.1
+            );
+            
+            if (matched) {
+                this.selectedCompId = matched.id;
+                this.redraw();
+                
+                // Update table select highlight
+                document.querySelectorAll('#results-table tbody tr').forEach(r => r.classList.remove('selected'));
+                const row = document.querySelector(`#results-table tbody tr[data-id="${matched.id}"]`);
+                if (row) {
+                    row.classList.add('selected');
+                    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } else {
+                this.selectedCompId = null;
+                this.redraw();
+                document.querySelectorAll('#results-table tbody tr').forEach(r => r.classList.remove('selected'));
+            }
+        }
     },
 
     updateScaleBarInfo() {
@@ -1052,13 +1368,27 @@ const App = {
         
         document.getElementById('scale-dx').innerText = `${dx.toFixed(0)} px`;
         document.getElementById('scale-dy').innerText = `${dy.toFixed(0)} px`;
-        document.getElementById('scale-d').innerText = `${d.toFixed(1)} px`;
         
-        document.querySelectorAll('.apply-measure-btn').forEach(btn => btn.disabled = d === 0);
+        const manualInput = document.getElementById('input-scale-d-manual');
+        if (manualInput) {
+            manualInput.value = d.toFixed(1);
+            manualInput.dispatchEvent(new Event('input')); // trigger enabling apply button
+        }
+        
+        const btnApplyD = document.getElementById('btn-apply-d-measure');
+        if (btnApplyD) {
+            btnApplyD.disabled = d === 0;
+        }
+        document.querySelectorAll('.apply-measure-btn').forEach(btn => {
+            const axis = btn.getAttribute('data-axis');
+            if (axis !== 'd') {
+                btn.disabled = d === 0;
+            }
+        });
     },
 
-    // --- LOADING AND CROP DRAWING ---
     loadImage(file) {
+        this.currentLoadedFile = file;
         this.imageName = file.name;
         this.imageFolder = file.webkitRelativePath 
             ? file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/')) 
@@ -1098,10 +1428,21 @@ const App = {
                 this.updateBatchSummary();
                 this.zoomToFit();
                 this.processImage();
+                this.updateActiveFileHighlight();
             };
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
+    },
+
+    processTimeout: null,
+    debouncedProcessImage() {
+        if (this.processTimeout) {
+            clearTimeout(this.processTimeout);
+        }
+        this.processTimeout = setTimeout(() => {
+            if (this.imageLoaded) this.processImage();
+        }, 300);
     },
 
     // --- CORE IMAGE PROCESSING PIPELINE ---
@@ -1123,6 +1464,7 @@ const App = {
         
         // 2. Grayscale Conversion
         let gray = ImageProcessor.toGrayscale(roiImageData, this.binarization.channel);
+        this.grayArray = gray; // Cache raw grayscale ROI
         
         // 3. Noise Filter
         if (this.noise.enabled && this.noise.method !== 'none') {
@@ -1132,6 +1474,7 @@ const App = {
                 gray = ImageProcessor.gaussianBlur(gray, W_ROI, H_ROI, this.noise.kernelSize);
             }
         }
+        this.noiseArray = gray; // Cache noise-filtered ROI
         
         // 4. Threshold Calculation
         if (this.binarization.method === 'otsu') {
@@ -1201,8 +1544,30 @@ const App = {
             return;
         }
         
-        // Sort components by ID
-        const sorted = [...this.components].sort((a, b) => a.id - b.id);
+        // Sort components dynamically based on state
+        const sorted = [...this.components].sort((a, b) => {
+            let valA, valB;
+            if (this.sortColumn === 'id') {
+                valA = a.id;
+                valB = b.id;
+            } else if (this.sortColumn === 'type') {
+                valA = a.type;
+                valB = b.type;
+            } else if (this.sortColumn === 'limit') {
+                valA = a.isBelowLimit ? 1 : 0;
+                valB = b.isBelowLimit ? 1 : 0;
+            } else if (this.sortColumn === 'area') {
+                valA = a.area;
+                valB = b.area;
+            } else if (this.sortColumn === 'dia') {
+                valA = a.diameter;
+                valB = b.diameter;
+            }
+            
+            if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
         
         sorted.forEach(comp => {
             const tr = document.createElement('tr');
@@ -1223,8 +1588,8 @@ const App = {
                 <td>${comp.id}</td>
                 <td>${typeText}</td>
                 <td>${limitText}</td>
-                <td>${comp.area.toFixed(3)}</td>
-                <td>${comp.diameter.toFixed(3)}</td>
+                <td class="text-right">${comp.area.toFixed(3)}</td>
+                <td class="text-right">${comp.diameter.toFixed(3)}</td>
             `;
             
             tr.addEventListener('click', () => {
@@ -1240,6 +1605,20 @@ const App = {
                 this.redraw();
             });
             tbody.appendChild(tr);
+        });
+    },
+
+    updateSortHeadersUI() {
+        document.querySelectorAll('#results-table th.sortable').forEach(th => {
+            const col = th.getAttribute('data-sort');
+            const icon = th.querySelector('.sort-icon');
+            if (icon) {
+                if (col === this.sortColumn) {
+                    icon.innerHTML = this.sortDirection === 'asc' ? ' &#9650;' : ' &#9660;';
+                } else {
+                    icon.innerHTML = '';
+                }
+            }
         });
     },
 
@@ -1272,22 +1651,43 @@ const App = {
         
         if (!this.imageLoaded) return;
         
-        // Draw base image
+        // 1. Draw base image
         this.baseCtx.drawImage(this.imageElement, 0, 0);
         
-        // Draw scale bar ticks in scale mode
-        if (this.activePage === 'scale' && this.scaleStart && this.scaleEnd) {
+        // 2. Overwrite ROI with processed pixels depending on active page
+        const rx1 = this.roi.enabled ? this.roi.x1 : 0;
+        const ry1 = this.roi.enabled ? this.roi.y1 : 0;
+        const w = this.roi.enabled ? (this.roi.x2 - this.roi.x1) : this.originalWidth;
+        const h = this.roi.enabled ? (this.roi.y2 - this.roi.y1) : this.originalHeight;
+        
+        if (w > 0 && h > 0) {
+            const grayPreviewChk = document.getElementById('chk-gray-preview');
+            const noisePreviewChk = document.getElementById('chk-noise-enable');
+            
+            if (this.activePage === 'grayscale' && grayPreviewChk && grayPreviewChk.checked && this.grayArray) {
+                this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+            } else if (this.activePage === 'noise' && noisePreviewChk && noisePreviewChk.checked && this.noiseArray) {
+                this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
+            } else if (this.activePage === 'binarization' && this.binArray) {
+                this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+            } else if (this.activePage === 'limit' && this.binArray) {
+                this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+            }
+        }
+        
+        // 3. Draw scale bar ticks in scale mode
+        if (this.activePage === 'scale' && (this.scaleStart || this.scaleEnd)) {
             this.drawScaleLine();
         }
         
-        // Draw ROI rectangle in ROI mode or if enabled
+        // 4. Draw ROI rectangle in ROI mode or if enabled
         if (this.roi.enabled && (this.activePage === 'roi' || 
             ['noise', 'binarization', 'limit'].includes(this.activePage) || 
             this.activePage === 'batch')) {
             this.drawROIRect();
         }
         
-        // Draw binary contours and details on analysis pages
+        // 5. Draw binary contours and details on analysis pages
         if (['binarization', 'limit', 'batch'].includes(this.activePage)) {
             const showBoundaries = document.getElementById('chk-bin-boundary').checked;
             if (showBoundaries && this.components.length > 0) {
@@ -1296,36 +1696,68 @@ const App = {
         }
     },
 
+    drawProcessedROI(pixels, rx1, ry1, w, h) {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        const tempCtx = tempCanvas.getContext('2d');
+        const imgData = tempCtx.createImageData(w, h);
+        const data = imgData.data;
+        
+        const len = pixels.length;
+        for (let i = 0; i < len; i++) {
+            const val = pixels[i];
+            const idx = i * 4;
+            data[idx] = val;     // R
+            data[idx + 1] = val; // G
+            data[idx + 2] = val; // B
+            data[idx + 3] = 255; // A
+        }
+        
+        tempCtx.putImageData(imgData, 0, 0);
+        this.baseCtx.drawImage(tempCanvas, rx1, ry1);
+    },
+
     drawScaleLine() {
         const ctx = this.overlayCtx;
         const start = this.scaleStart;
         const end = this.scaleEnd;
         
-        ctx.strokeStyle = '#00d2ff';
-        ctx.lineWidth = Math.max(2, 2 / this.zoomScale);
-        ctx.beginPath();
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
+        ctx.save();
         
-        // Draw cross ticks at endpoints
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
-        const len = Math.sqrt(dx*dx + dy*dy);
-        
-        if (len > 0) {
-            const tickLen = Math.max(10, 10 / this.zoomScale);
-            const ux = (dx / len) * tickLen;
-            const uy = (dy / len) * tickLen;
-            
-            // Ticks perpendicular
-            ctx.beginPath();
-            ctx.moveTo(start.x + uy, start.y - ux);
-            ctx.lineTo(start.x - uy, start.y + ux);
-            ctx.moveTo(end.x + uy, end.y - ux);
-            ctx.lineTo(end.x - uy, end.y + ux);
-            ctx.stroke();
+        // Draw crosshair at start
+        if (start) {
+            this.drawCrosshair(ctx, start.x, start.y, '#00d2ff');
         }
+        
+        // Draw line and crosshair at end
+        if (end) {
+            ctx.strokeStyle = '#00d2ff';
+            ctx.lineWidth = Math.max(2, 2 / this.zoomScale);
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+            
+            this.drawCrosshair(ctx, end.x, end.y, '#00d2ff');
+        }
+        
+        ctx.restore();
+    },
+
+    drawCrosshair(ctx, x, y, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(1.5, 1.5 / this.zoomScale);
+        const size = Math.max(8, 8 / this.zoomScale);
+        
+        ctx.beginPath();
+        ctx.moveTo(x - size, y);
+        ctx.lineTo(x + size, y);
+        ctx.moveTo(x, y - size);
+        ctx.lineTo(x, y + size);
+        ctx.stroke();
+        ctx.restore();
     },
 
     drawROIRect() {
@@ -1334,7 +1766,7 @@ const App = {
         
         ctx.save();
         
-        // Outside ROI shading
+        // Outside ROI shading (kept on all pages)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
         // Top block
         ctx.fillRect(0, 0, this.originalWidth, y1);
@@ -1345,18 +1777,17 @@ const App = {
         // Right block
         ctx.fillRect(x2, y1, this.originalWidth - x2, y2 - y1);
         
-        // Draw green bounding rect
-        ctx.strokeStyle = '#10b981'; // neon green
-        ctx.lineWidth = Math.max(2, 2 / this.zoomScale);
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-        
-        // Draw translucent inner shading
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
-        ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
-        
-        // Draw resize handles if on ROI page
+        // Draw green bounding rect and resize handles ONLY on the ROI page
         if (this.activePage === 'roi') {
+            ctx.strokeStyle = '#10b981'; // neon green
+            ctx.lineWidth = Math.max(2, 2 / this.zoomScale);
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+            
+            // Draw translucent inner shading
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+            ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+            
             ctx.restore(); // cancel dashes
             ctx.fillStyle = '#ffffff';
             ctx.strokeStyle = '#10b981';
@@ -1440,8 +1871,8 @@ const App = {
         tempCtx.putImageData(overlayData, 0, 0);
         this.overlayCtx.drawImage(tempCanvas, rx1, ry1);
         
-        // Vector-draw the selected component boundary thick and glowing
-        if (selectedComp) {
+        // Vector-draw the selected component boundary thick and glowing (only on limit page)
+        if (selectedComp && this.activePage === 'limit') {
             const ctx = this.overlayCtx;
             ctx.save();
             ctx.strokeStyle = '#ffffff';
@@ -1511,12 +1942,23 @@ const App = {
             
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                // Check if on Batch Page - if so, add all images to list
-                if (this.activePage === 'batch') {
+                const file = files[0];
+                if (file.name.endsWith('.json')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const parsed = JSON.parse(event.target.result);
+                            this.applyJSONConfig(parsed, true);
+                            this.logMessage(`Loaded configuration from drag & drop: ${parsed.name || 'imported'}`);
+                        } catch (err) {
+                            alert('Invalid JSON configuration file');
+                        }
+                    };
+                    reader.readAsText(file);
+                } else if (this.activePage === 'batch') {
                     this.addFilesToList(files);
                 } else {
-                    // Single image load
-                    this.loadImage(files[0]);
+                    this.loadImage(file);
                 }
             }
         });
@@ -1554,13 +1996,16 @@ const App = {
             const dirName = await FileSystemHelper.selectDirectory();
             const display = document.getElementById('display-output-path');
             if (dirName) {
+                this.outputFolder = dirName;
                 display.innerText = dirName;
                 display.classList.remove('zip-active');
                 this.logMessage(`Selected output folder: ${dirName}`);
             } else {
+                this.outputFolder = '';
                 display.innerText = I18n.get('zip_fallback_active');
                 display.classList.add('zip-active');
             }
+            this.saveSettingsToStorage();
         });
         
         // Run Batch Process Button
@@ -1600,11 +2045,25 @@ const App = {
         
         this.batchFiles.forEach((file, idx) => {
             const tr = document.createElement('tr');
+            tr.setAttribute('data-index', idx);
             
-            // Folder name
-            const folder = file.webkitRelativePath 
-                ? file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/')) 
-                : 'Local';
+            if (this.currentLoadedFile && 
+                this.currentLoadedFile.name === file.name && 
+                this.currentLoadedFile.size === file.size) {
+                tr.classList.add('active-file');
+            }
+            
+            // Absolute folder path display logic
+            let folder = this.inputDirectoryPath || 'Local';
+            if (file.webkitRelativePath) {
+                const relFolder = file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/'));
+                if (this.inputDirectoryPath) {
+                    const cleanBase = this.inputDirectoryPath.replace(/\/$/, '').replace(/\\$/, '');
+                    folder = `${cleanBase}\\${relFolder.replace(/\//g, '\\')}`;
+                } else {
+                    folder = relFolder;
+                }
+            }
                 
             tr.innerHTML = `
                 <td>
@@ -1630,6 +2089,19 @@ const App = {
             });
             
             tbody.appendChild(tr);
+        });
+    },
+
+    updateActiveFileHighlight() {
+        document.querySelectorAll('#batch-file-table tbody tr').forEach(tr => {
+            const idx = parseInt(tr.getAttribute('data-index'));
+            if (!isNaN(idx) && this.batchFiles[idx]) {
+                const f = this.batchFiles[idx];
+                const isActive = this.currentLoadedFile && 
+                                 this.currentLoadedFile.name === f.name && 
+                                 this.currentLoadedFile.size === f.size;
+                tr.classList.toggle('active-file', !!isActive);
+            }
         });
     },
 
@@ -2004,6 +2476,9 @@ const App = {
         
         history.forEach((run, idx) => {
             const tr = document.createElement('tr');
+            if (this.activeHistoryIndex === idx) {
+                tr.classList.add('selected');
+            }
             tr.innerHTML = `
                 <td>${run.timestamp}</td>
                 <td class="text-truncate" style="max-width: 140px;" title="${run.name}">${run.name}</td>
@@ -2014,8 +2489,17 @@ const App = {
             
             tr.querySelector('.apply-measure-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
+                this.activeHistoryIndex = idx;
                 this.applyJSONConfig(run.config, true);
                 this.logMessage(`Applied settings from history: ${run.name}`);
+                this.renderHistoryTable();
+            });
+            
+            tr.addEventListener('click', () => {
+                this.activeHistoryIndex = idx;
+                this.applyJSONConfig(run.config, true);
+                this.logMessage(`Applied settings from history: ${run.name}`);
+                this.renderHistoryTable();
             });
             
             tbody.appendChild(tr);

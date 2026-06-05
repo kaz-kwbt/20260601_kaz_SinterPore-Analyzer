@@ -302,15 +302,28 @@ body {
     align-items: center;
     justify-content: center;
     background-color: rgba(6, 8, 12, 0.8);
-    overflow: hidden;
+    overflow: auto;
+}
+
+#canvas-wrapper {
+    margin: auto;
+    position: relative;
+    flex-shrink: 0;
+    display: none;
+}
+
+#canvas-wrapper.active {
+    display: block;
 }
 
 #base-canvas, #overlay-canvas {
     position: absolute;
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    transform-origin: center center;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
 }
 
 #overlay-canvas {
@@ -881,6 +894,7 @@ input[type="number"]:focus, select:focus, textarea:focus {
 .app-container[data-active-page="general"] .page-control[data-page="general"],
 .app-container[data-active-page="scale"] .page-control[data-page="scale"],
 .app-container[data-active-page="roi"] .page-control[data-page="roi"],
+.app-container[data-active-page="grayscale"] .page-control[data-page="grayscale"],
 .app-container[data-active-page="noise"] .page-control[data-page="noise"],
 .app-container[data-active-page="binarization"] .page-control[data-page="binarization"],
 .app-container[data-active-page="limit"] .page-control[data-page="limit"],
@@ -1132,4 +1146,52 @@ input[type="number"]:focus, select:focus, textarea:focus {
     .nav-drawer {
         height: calc(100vh - 60px);
     }
+}
+
+/* Sidebar Page Title Card */
+.sidebar-page-title-card {
+    margin-bottom: 5px;
+    padding: 14px 20px;
+    border-radius: 12px;
+}
+.sidebar-page-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #ffffff, var(--text-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+/* Utilities and sorting headers */
+.text-right {
+    text-align: right !important;
+}
+
+.data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 20px !important;
+}
+.data-table th.sortable:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+}
+.sort-icon {
+    font-size: 10px;
+    margin-left: 4px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Selected active file highlight */
+.data-table tbody tr.active-file {
+    background: rgba(59, 130, 246, 0.16) !important;
+    border-left: 3px solid var(--primary) !important;
+}
+.data-table tbody tr.active-file td {
+    font-weight: 600;
+    color: #ffffff !important;
 }
