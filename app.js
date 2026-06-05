@@ -367,6 +367,13 @@ const App = {
         y2: 100
     },
     
+    // FFT parameters
+    fft: {
+        enabled: false,
+        highPassLimit: 5,
+        lowPassLimit: 100
+    },
+    
     // Preprocessing parameters
     noise: {
         enabled: true,
@@ -411,8 +418,16 @@ const App = {
     components: [],
     selectedCompId: null,
     
+    // Pipeline Cache and Validity Flags
+    isGrayscaleStageValid: false,
+    isFFTStageValid: false,
+    isNoiseStageValid: false,
+    isBinarizationStageValid: false,
+    isCCLStageValid: false,
+    
     // Caching processed arrays for instant redrawing
     grayArray: null,
+    fftArray: null,
     noiseArray: null,
     binArray: null,
     
@@ -475,6 +490,219 @@ const App = {
         }
     },
 
+    switchPage(pageName) {
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+        if (!pageOrder.includes(pageName)) return;
+        this.activePage = pageName;
+        
+        document.getElementById('app-container').setAttribute('data-active-page', pageName);
+        
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.getAttribute('data-page') === pageName) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        const sidebarTitle = document.getElementById('sidebar-page-title');
+        if (sidebarTitle) {
+            sidebarTitle.setAttribute('data-i18n', `page_${pageName}_title`);
+            sidebarTitle.innerText = I18n.get(`page_${pageName}_title`);
+        }
+        
+        this.dragMode = null;
+        this.isMeasuringScale = false;
+        
+        this.updateHeaderNavButtons();
+        
+        if (this.imageLoaded) {
+            this.evaluatePipeline();
+        } else {
+            this.redraw();
+        }
+    },
+    
+    updateHeaderNavButtons() {
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+        const idx = pageOrder.indexOf(this.activePage);
+        const prevBtn = document.getElementById('btn-prev-page');
+        const nextBtn = document.getElementById('btn-next-page');
+        if (prevBtn) prevBtn.disabled = (idx <= 0);
+        if (nextBtn) nextBtn.disabled = (idx >= pageOrder.length - 1);
+    },
+
+    invalidateGrayscale() {
+        this.isGrayscaleStageValid = false;
+        this.invalidateFFT();
+    },
+    invalidateFFT() {
+        this.isFFTStageValid = false;
+        this.invalidateNoise();
+    },
+    invalidateNoise() {
+        this.isNoiseStageValid = false;
+        this.invalidateBinarization();
+    },
+    invalidateBinarization() {
+        this.isBinarizationStageValid = false;
+        this.invalidateCCL();
+    },
+    invalidateCCL() {
+        this.isCCLStageValid = false;
+    },
+    
+    runGrayscaleStage(roiImageData) {
+        if (this.isGrayscaleStageValid && this.grayArray) return;
+        this.grayArray = ImageProcessor.toGrayscale(roiImageData, this.binarization.channel);
+        this.isGrayscaleStageValid = true;
+    },
+    
+    runFFTStage(W, H) {
+        if (this.isFFTStageValid && this.fftArray) return;
+        if (this.fft.enabled) {
+            this.fftArray = ImageProcessor.fftBandpassFilter(
+                this.grayArray, W, H, 
+                this.fft.highPassLimit, this.fft.lowPassLimit
+            );
+        } else {
+            this.fftArray = new Uint8Array(this.grayArray);
+        }
+        this.isFFTStageValid = true;
+    },
+    
+    runNoiseStage(W, H) {
+        if (this.isNoiseStageValid && this.noiseArray) return;
+        let imgArr = this.fftArray;
+        if (this.noise.enabled && this.noise.method !== 'none') {
+            if (this.noise.method === 'median') {
+                this.noiseArray = ImageProcessor.medianFilter(imgArr, W, H, this.noise.kernelSize);
+            } else if (this.noise.method === 'gaussian') {
+                this.noiseArray = ImageProcessor.gaussianBlur(imgArr, W, H, this.noise.kernelSize);
+            }
+        } else {
+            this.noiseArray = new Uint8Array(imgArr);
+        }
+        this.isNoiseStageValid = true;
+    },
+    
+    runBinarizationStage() {
+        if (this.isBinarizationStageValid && this.binArray) return;
+        
+        let imgArr = this.noiseArray;
+        if (this.binarization.method === 'otsu') {
+            this.otsuCalculatedVal = ImageProcessor.calculateOtsuThreshold(imgArr);
+            const applied = Math.round(this.otsuCalculatedVal * this.binarization.otsuPercent / 100);
+            this.appliedThreshold = Math.max(0, Math.min(255, applied));
+            
+            const calcEl = document.getElementById('otsu-calc-val');
+            if (calcEl) calcEl.innerText = this.otsuCalculatedVal;
+            const appliedEl = document.getElementById('otsu-applied-val');
+            if (appliedEl) appliedEl.innerText = this.appliedThreshold;
+        } else {
+            this.appliedThreshold = this.binarization.fixedValue;
+        }
+        
+        this.binArray = ImageProcessor.binarize(imgArr, this.appliedThreshold);
+        this.isBinarizationStageValid = true;
+    },
+    
+    runCCLStage(W, H) {
+        if (this.isCCLStageValid && this.components.length > 0) return;
+        
+        const solids = ImageProcessor.labelComponents(this.binArray, W, H, 255);
+        const voids = ImageProcessor.labelComponents(this.binArray, W, H, 0);
+        
+        const scaleSq = this.umPerPx * this.umPerPx;
+        this.components = [];
+        let globalId = 1;
+        
+        const processGroup = (group, isSolid) => {
+            const pxLimit = isSolid ? this.limit.solidPx : this.limit.voidPx;
+            for (const c of group) {
+                const area = c.pixels * scaleSq;
+                const diameter = 2 * Math.sqrt(area / Math.PI);
+                
+                this.components.push({
+                    id: globalId++,
+                    type: isSolid ? 'solid' : 'void',
+                    pixels: c.pixels,
+                    area: area,
+                    diameter: diameter,
+                    xmin: c.xmin,
+                    xmax: c.xmax,
+                    ymin: c.ymin,
+                    ymax: c.ymax,
+                    cx: c.cx,
+                    cy: c.cy,
+                    isBelowLimit: c.pixels < pxLimit,
+                    boundary: c.boundary
+                });
+            }
+        };
+        
+        processGroup(solids, true);
+        processGroup(voids, false);
+        
+        this.isCCLStageValid = true;
+    },
+    
+    evaluatePipeline() {
+        if (!this.imageLoaded) return;
+        
+        const W_ROI = this.roi.enabled ? (this.roi.x2 - this.roi.x1) : this.originalWidth;
+        const H_ROI = this.roi.enabled ? (this.roi.y2 - this.roi.y1) : this.originalHeight;
+        const rx1 = this.roi.enabled ? this.roi.x1 : 0;
+        const ry1 = this.roi.enabled ? this.roi.y1 : 0;
+        
+        const needsGrayscale = ['grayscale', 'noise', 'binarization', 'limit'].includes(this.activePage);
+        const needsFFT = ['noise', 'binarization', 'limit'].includes(this.activePage);
+        const needsNoise = ['noise', 'binarization', 'limit'].includes(this.activePage);
+        const needsBinarization = ['binarization', 'limit'].includes(this.activePage);
+        const needsCCL = ['limit'].includes(this.activePage);
+        
+        if (needsGrayscale) {
+            if (!this.isGrayscaleStageValid || !this.grayArray) {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = W_ROI;
+                tempCanvas.height = H_ROI;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(this.imageElement, rx1, ry1, W_ROI, H_ROI, 0, 0, W_ROI, H_ROI);
+                const roiImageData = tempCtx.getImageData(0, 0, W_ROI, H_ROI);
+                
+                this.runGrayscaleStage(roiImageData);
+            }
+        }
+        
+        if (needsFFT) {
+            this.runFFTStage(W_ROI, H_ROI);
+        }
+        
+        if (needsNoise) {
+            this.runNoiseStage(W_ROI, H_ROI);
+        }
+        
+        if (needsBinarization) {
+            this.runBinarizationStage();
+        }
+        
+        if (needsCCL) {
+            this.runCCLStage(W_ROI, H_ROI);
+            this.renderResultsTable();
+        }
+        
+        this.redraw();
+    },
+    
+    debouncedEvaluatePipeline() {
+        if (this.processTimeout) {
+            clearTimeout(this.processTimeout);
+        }
+        this.processTimeout = setTimeout(() => {
+            if (this.imageLoaded) this.evaluatePipeline();
+        }, 300);
+    },
+
     // --- SETTINGS LOCAL STORAGE ---
     loadSettingsFromStorage() {
         const lastSettings = localStorage.getItem('sinterpore_last_settings');
@@ -507,6 +735,11 @@ const App = {
                 y1: this.roi.y1,
                 x2: this.roi.x2,
                 y2: this.roi.y2
+            },
+            fft: {
+                enabled: this.fft.enabled,
+                highPassLimit: this.fft.highPassLimit,
+                lowPassLimit: this.fft.lowPassLimit
             },
             noise: {
                 enabled: this.noise.enabled,
@@ -548,6 +781,11 @@ const App = {
             this.roi.x2 = config.roi.x2;
             this.roi.y2 = config.roi.y2;
         }
+        if (config.fft) {
+            this.fft.enabled = !!config.fft.enabled;
+            this.fft.highPassLimit = config.fft.highPassLimit || 5;
+            this.fft.lowPassLimit = config.fft.lowPassLimit || 100;
+        }
         if (config.noise) {
             this.noise.enabled = config.noise.enabled;
             this.noise.method = config.noise.method;
@@ -566,8 +804,10 @@ const App = {
         }
         
         if (config.batch) {
-            document.getElementById('chk-batch-labels').checked = !!config.batch.labelNumbersEnabled;
-            document.getElementById('input-batch-notes').value = config.batch.notes || '';
+            const chkLabels = document.getElementById('chk-batch-labels');
+            if (chkLabels) chkLabels.checked = !!config.batch.labelNumbersEnabled;
+            const batchNotes = document.getElementById('input-batch-notes');
+            if (batchNotes) batchNotes.value = config.batch.notes || '';
             this.outputFolder = config.batch.outputFolder || '';
             const display = document.getElementById('display-output-path');
             if (display) {
@@ -584,8 +824,9 @@ const App = {
         this.updateUIInputs();
         this.updateBatchSummary();
         
+        this.invalidateGrayscale(); // Invalidate cache since settings changed completely
         if (this.imageLoaded) {
-            this.processImage();
+            this.evaluatePipeline();
         } else {
             this.redraw();
         }
@@ -605,26 +846,33 @@ const App = {
         document.getElementById('input-roi-x2').value = this.roi.x2;
         document.getElementById('input-roi-y2').value = this.roi.y2;
         
-        document.getElementById('chk-noise-enable').checked = this.noise.enabled;
-        document.getElementById('chk-bin-noise').checked = this.noise.enabled;
-        document.getElementById('chk-limit-noise').checked = this.noise.enabled;
-        document.getElementById('select-noise-method').value = this.noise.method;
-        document.getElementById('select-noise-kernel').value = this.noise.kernelSize;
+        // FFT UI
+        const fftRadio = document.querySelector(`input[name="fft-enable"][value="${this.fft.enabled ? 'enabled' : 'disabled'}"]`);
+        if (fftRadio) fftRadio.checked = true;
+        const hpEl = document.getElementById('input-fft-highpass');
+        if (hpEl) hpEl.value = this.fft.highPassLimit;
+        const lpEl = document.getElementById('input-fft-lowpass');
+        if (lpEl) lpEl.value = this.fft.lowPassLimit;
         
-        const selectGrayCh = document.getElementById('select-gray-channel');
-        if (selectGrayCh) {
-            selectGrayCh.value = this.binarization.channel;
-        }
-        const grayPreviewChk = document.getElementById('chk-gray-preview');
-        if (grayPreviewChk) {
-            grayPreviewChk.checked = this.binarization.grayscalePreview;
-        }
+        // Noise UI (method as radio buttons)
+        const noiseMethodRadio = document.querySelector(`input[name="noise-method-choice"][value="${this.noise.method}"]`);
+        if (noiseMethodRadio) noiseMethodRadio.checked = true;
         
-        document.querySelector(`input[name="bin-method"][value="${this.binarization.method}"]`).checked = true;
+        const noiseKernelRadio = document.querySelector(`input[name="noise-kernel-choice"][value="${this.noise.kernelSize}"]`);
+        if (noiseKernelRadio) noiseKernelRadio.checked = true;
+        
+        // Grayscale UI (channel choice as radio buttons)
+        const grayChanRadio = document.querySelector(`input[name="gray-channel-choice"][value="${this.binarization.channel}"]`);
+        if (grayChanRadio) grayChanRadio.checked = true;
+        
+        // Binarization UI
+        const binMethodRadio = document.querySelector(`input[name="bin-method"][value="${this.binarization.method}"]`);
+        if (binMethodRadio) binMethodRadio.checked = true;
+        
         document.getElementById('input-bin-fixed').value = this.binarization.fixedValue;
         document.getElementById('input-bin-otsu-percent').value = this.binarization.otsuPercent;
         
-        document.getElementById('chk-limit-noise').checked = this.noise.enabled;
+        // Limit UI
         document.getElementById('input-limit-solid-px').value = this.limit.solidPx;
         document.getElementById('input-limit-void-px').value = this.limit.voidPx;
         
@@ -665,22 +913,28 @@ const App = {
             : I18n.get('btn_roi_full');
         document.getElementById('summary-roi').innerText = roiText;
         
-        const selectGrayCh = document.getElementById('select-gray-channel');
+        const grayChanRadio = document.querySelector(`input[name="gray-channel-choice"]:checked`);
         let grayChannelText = this.binarization.channel;
-        if (selectGrayCh) {
-            const opt = selectGrayCh.querySelector(`option[value="${this.binarization.channel}"]`);
-            if (opt) {
-                grayChannelText = opt.innerText;
-            }
+        if (grayChanRadio) {
+            grayChannelText = grayChanRadio.closest('label').innerText.trim();
         }
         const summaryGray = document.getElementById('summary-gray');
         if (summaryGray) {
             summaryGray.innerText = grayChannelText;
         }
         
-        const noiseText = this.noise.enabled 
-            ? `${this.noise.method === 'median' ? 'Median' : 'Gaussian'} (${this.noise.kernelSize}x${this.noise.kernelSize})` 
-            : 'None';
+        let noiseText = '';
+        if (this.fft.enabled) {
+            noiseText += `FFT (${this.fft.highPassLimit}-${this.fft.lowPassLimit}px) + `;
+        }
+        if (this.noise.enabled && this.noise.method !== 'none') {
+            noiseText += `${this.noise.method === 'median' ? 'Median' : 'Gaussian'} (${this.noise.kernelSize}x${this.noise.kernelSize})`;
+        } else {
+            noiseText += this.fft.enabled ? 'None' : 'None';
+        }
+        if (noiseText.endsWith(' + ')) {
+            noiseText = noiseText.substring(0, noiseText.length - 3);
+        }
         document.getElementById('summary-noise').innerText = noiseText;
         
         const binText = this.binarization.method === 'fixed' 
@@ -703,26 +957,27 @@ const App = {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                item.classList.add('active');
-                
-                this.activePage = item.getAttribute('data-page');
-                document.getElementById('app-container').setAttribute('data-active-page', this.activePage);
-                
-                // Set Sidebar page title
-                const sidebarTitle = document.getElementById('sidebar-page-title');
-                if (sidebarTitle) {
-                    sidebarTitle.setAttribute('data-i18n', `page_${this.activePage}_title`);
-                    sidebarTitle.innerText = I18n.get(`page_${this.activePage}_title`);
-                }
-                
-                // If opening ROI or Scale, reset drag states
-                this.dragMode = null;
-                this.isDrawingScale = false;
-                
-                this.redraw();
+                this.switchPage(item.getAttribute('data-page'));
             });
         });
+        
+        // Prev/Next buttons
+        const prevBtn = document.getElementById('btn-prev-page');
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+                const idx = pageOrder.indexOf(this.activePage);
+                if (idx > 0) this.switchPage(pageOrder[idx - 1]);
+            });
+        }
+        const nextBtn = document.getElementById('btn-next-page');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+                const idx = pageOrder.indexOf(this.activePage);
+                if (idx < pageOrder.length - 1) this.switchPage(pageOrder[idx + 1]);
+            });
+        }
         
         // Drawer toggles
         document.getElementById('menu-toggle-btn').addEventListener('click', () => {
@@ -853,7 +1108,8 @@ const App = {
             this.umPerPx = Math.max(0.0001, parseFloat(e.target.value) || 1.0);
             this.updateLimitEquivalentLabels();
             this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
         
@@ -869,13 +1125,12 @@ const App = {
                 const axis = btn.getAttribute('data-axis');
                 let pxLength = 0;
                 
-                if (axis === 'x' && this.scaleStart && this.scaleEnd) {
-                    pxLength = Math.abs(this.scaleEnd.x - this.scaleStart.x);
-                } else if (axis === 'y' && this.scaleStart && this.scaleEnd) {
-                    pxLength = Math.abs(this.scaleEnd.y - this.scaleStart.y);
+                if (axis === 'x') {
+                    pxLength = parseFloat(document.getElementById('input-scale-dx-manual').value) || 0;
+                } else if (axis === 'y') {
+                    pxLength = parseFloat(document.getElementById('input-scale-dy-manual').value) || 0;
                 } else if (axis === 'd') {
-                    const manualInput = document.getElementById('input-scale-d-manual');
-                    pxLength = parseFloat(manualInput.value) || 0;
+                    pxLength = parseFloat(document.getElementById('input-scale-d-manual').value) || 0;
                 }
                 
                 if (pxLength > 0) {
@@ -885,13 +1140,31 @@ const App = {
                 }
             });
         });
+
+        // manual inputs apply enabling
+        const bindManualInput = (inputId, btnId) => {
+            const input = document.getElementById(inputId);
+            const btn = document.getElementById(btnId);
+            if (input && btn) {
+                input.addEventListener('input', () => {
+                    const val = parseFloat(input.value) || 0;
+                    btn.disabled = val <= 0;
+                });
+                const val = parseFloat(input.value) || 0;
+                btn.disabled = val <= 0;
+            }
+        };
+        bindManualInput('input-scale-dx-manual', 'btn-apply-x-measure');
+        bindManualInput('input-scale-dy-manual', 'btn-apply-y-measure');
+        bindManualInput('input-scale-d-manual', 'btn-apply-d-measure');
         
         // roi
         const roiEnableChk = document.getElementById('chk-roi-enable');
         roiEnableChk.addEventListener('change', (e) => {
             this.roi.enabled = e.target.checked;
             this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
+            this.invalidateGrayscale();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
         
@@ -901,8 +1174,9 @@ const App = {
                 const val = parseInt(e.target.value) || 0;
                 this.roi[field] = Math.max(0, val);
                 this.updateBatchSummary();
+                this.invalidateGrayscale();
                 this.redraw(); // Redraw green box instantly
-                this.debouncedProcessImage(); // Debounce heavy analysis
+                this.debouncedEvaluatePipeline(); // Debounce heavy analysis
                 this.saveSettingsToStorage();
             };
             input.addEventListener('input', handleInput);
@@ -911,7 +1185,7 @@ const App = {
                 if (this.processTimeout) {
                     clearTimeout(this.processTimeout);
                 }
-                if (this.imageLoaded) this.processImage();
+                if (this.imageLoaded) this.evaluatePipeline();
             });
         };
         bindRoiCoord('input-roi-x1', 'x1');
@@ -926,67 +1200,105 @@ const App = {
                 this.roi.x2 = this.originalWidth;
                 this.roi.y2 = this.originalHeight;
                 this.updateUIInputs();
-                this.processImage();
+                this.invalidateGrayscale();
+                this.evaluatePipeline();
             }
         });
         
-        // noise
-        const syncNoiseEnable = (e) => {
-            this.noise.enabled = e.target.checked;
-            document.getElementById('chk-noise-enable').checked = this.noise.enabled;
-            document.getElementById('chk-bin-noise').checked = this.noise.enabled;
-            document.getElementById('chk-limit-noise').checked = this.noise.enabled;
-            this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
-            this.saveSettingsToStorage();
-        };
-        document.getElementById('chk-noise-enable').addEventListener('change', syncNoiseEnable);
-        document.getElementById('chk-bin-noise').addEventListener('change', syncNoiseEnable);
-        document.getElementById('chk-limit-noise').addEventListener('change', syncNoiseEnable);
-        
-        document.getElementById('select-noise-method').addEventListener('change', (e) => {
-            this.noise.method = e.target.value;
-            document.getElementById('noise-kernel-group').classList.toggle('hidden', this.noise.method === 'none');
-            this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
-            this.saveSettingsToStorage();
-        });
-        document.getElementById('select-noise-kernel').addEventListener('change', (e) => {
-            this.noise.kernelSize = parseInt(e.target.value) || 3;
-            this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
-            this.saveSettingsToStorage();
-        });
-        
-        // grayscale channel selection
-        const selectGrayCh = document.getElementById('select-gray-channel');
-        if (selectGrayCh) {
-            selectGrayCh.addEventListener('change', (e) => {
-                this.binarization.channel = e.target.value;
+        // FFT parameters
+        document.querySelectorAll('input[name="fft-enable"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.fft.enabled = e.target.value === 'enabled';
                 this.updateBatchSummary();
-                if (this.imageLoaded) this.processImage();
+                this.invalidateFFT();
+                if (this.imageLoaded) this.evaluatePipeline();
                 this.saveSettingsToStorage();
             });
-        }
+        });
+        document.getElementById('input-fft-highpass').addEventListener('change', (e) => {
+            this.fft.highPassLimit = Math.max(0, parseInt(e.target.value) || 0);
+            this.updateBatchSummary();
+            this.invalidateFFT();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        });
+        document.getElementById('input-fft-lowpass').addEventListener('change', (e) => {
+            this.fft.lowPassLimit = Math.max(1, parseInt(e.target.value) || 1);
+            this.updateBatchSummary();
+            this.invalidateFFT();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        });
+        
+        // Noise parameters (as radio choices)
+        document.querySelectorAll('input[name="noise-method-choice"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.noise.method = e.target.value;
+                this.updateBatchSummary();
+                this.invalidateNoise();
+                if (this.imageLoaded) this.evaluatePipeline();
+                this.saveSettingsToStorage();
+            });
+        });
+        document.querySelectorAll('input[name="noise-kernel-choice"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.noise.kernelSize = parseInt(e.target.value) || 3;
+                this.updateBatchSummary();
+                this.invalidateNoise();
+                if (this.imageLoaded) this.evaluatePipeline();
+                this.saveSettingsToStorage();
+            });
+        });
+        document.querySelectorAll('input[name="noise-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
+        
+        // Grayscale conversion & display settings (radios)
+        document.querySelectorAll('input[name="gray-channel-choice"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.binarization.channel = e.target.value;
+                this.updateBatchSummary();
+                this.invalidateGrayscale();
+                if (this.imageLoaded) this.evaluatePipeline();
+                this.saveSettingsToStorage();
+            });
+        });
+        document.querySelectorAll('input[name="gray-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
+        
+        // Binarization display settings (radios)
+        document.querySelectorAll('input[name="bin-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
         
         document.querySelectorAll('input[name="bin-method"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.binarization.method = e.target.value;
                 this.toggleThresholdInputs();
                 this.updateBatchSummary();
-                if (this.imageLoaded) this.processImage();
+                this.invalidateBinarization();
+                if (this.imageLoaded) this.evaluatePipeline();
                 this.saveSettingsToStorage();
             });
         });
         document.getElementById('input-bin-fixed').addEventListener('change', (e) => {
             this.binarization.fixedValue = Math.max(0, Math.min(255, parseInt(e.target.value) || 128));
-            if (this.imageLoaded) this.processImage();
+            this.invalidateBinarization();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
         document.getElementById('input-bin-otsu-percent').addEventListener('change', (e) => {
             this.binarization.otsuPercent = Math.max(1, parseInt(e.target.value) || 100);
             this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
+            this.invalidateBinarization();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
         
@@ -1003,50 +1315,35 @@ const App = {
         document.getElementById('chk-limit-numbers').addEventListener('change', () => this.redraw());
         
         // limit
+        document.querySelectorAll('input[name="limit-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
         document.getElementById('input-limit-solid-px').addEventListener('change', (e) => {
             this.limit.solidPx = Math.max(0, parseInt(e.target.value) || 0);
             this.updateLimitEquivalentLabels();
             this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
         document.getElementById('input-limit-void-px').addEventListener('change', (e) => {
             this.limit.voidPx = Math.max(0, parseInt(e.target.value) || 0);
             this.updateLimitEquivalentLabels();
             this.updateBatchSummary();
-            if (this.imageLoaded) this.processImage();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
 
-        // Grayscale settings
-        const grayPreviewChk = document.getElementById('chk-gray-preview');
-        if (grayPreviewChk) {
-            grayPreviewChk.addEventListener('change', (e) => {
-                this.binarization.grayscalePreview = e.target.checked;
-                this.redraw();
-                this.saveSettingsToStorage();
-            });
-        }
-
-        // Absolute folder path input
+        // Absolute folder path input (if exists)
         const absPathInput = document.getElementById('input-folder-abs-path');
         if (absPathInput) {
             absPathInput.addEventListener('input', (e) => {
                 this.inputDirectoryPath = e.target.value;
                 localStorage.setItem('sinterpore_input_dir_path', this.inputDirectoryPath);
                 this.renderBatchFilesTable();
-            });
-        }
-
-        // Scale manual input
-        const manualInput = document.getElementById('input-scale-d-manual');
-        if (manualInput) {
-            manualInput.addEventListener('input', () => {
-                const val = parseFloat(manualInput.value) || 0;
-                const btnApplyD = document.getElementById('btn-apply-d-measure');
-                if (btnApplyD) {
-                    btnApplyD.disabled = val <= 0;
-                }
             });
         }
     },
@@ -1116,10 +1413,10 @@ const App = {
             if (!this.imageLoaded) return;
             const pt = this.getImgCoords(e);
             
-            // Check if ROI corner or box is dragged (only in ROI page)
+            // Check if ROI corner or edge is dragged (only in ROI page)
             let isROIDrag = false;
             if (this.activePage === 'roi' && this.roi.enabled) {
-                const handleRadius = 12 / this.zoomScale; // hit area based on zoom
+                const handleRadius = Math.max(12, 12 / this.zoomScale); // hit area based on zoom
                 const corners = [
                     { x: this.roi.x1, y: this.roi.y1 }, // TL
                     { x: this.roi.x2, y: this.roi.y1 }, // TR
@@ -1141,15 +1438,33 @@ const App = {
                     this.dragMode = 'resize';
                     this.draggedCorner = clickedCorner;
                     isROIDrag = true;
-                } else if (pt.x > this.roi.x1 && pt.x < this.roi.x2 && pt.y > this.roi.y1 && pt.y < this.roi.y2) {
-                    this.dragMode = 'move';
-                    this.dragStartOffset = {
-                        x: pt.x - this.roi.x1,
-                        y: pt.y - this.roi.y1,
-                        w: this.roi.x2 - this.roi.x1,
-                        h: this.roi.y2 - this.roi.y1
-                    };
-                    isROIDrag = true;
+                } else {
+                    // Check edges
+                    const edgeTolerance = Math.max(8, 8 / this.zoomScale);
+                    let clickedEdge = null;
+                    
+                    // Check horizontal edges (top/bottom) within x1..x2
+                    if (pt.x >= this.roi.x1 - edgeTolerance && pt.x <= this.roi.x2 + edgeTolerance) {
+                        if (Math.abs(pt.y - this.roi.y1) <= edgeTolerance) {
+                            clickedEdge = 'top';
+                        } else if (Math.abs(pt.y - this.roi.y2) <= edgeTolerance) {
+                            clickedEdge = 'bottom';
+                        }
+                    }
+                    // Check vertical edges (left/right) within y1..y2
+                    if (pt.y >= this.roi.y1 - edgeTolerance && pt.y <= this.roi.y2 + edgeTolerance) {
+                        if (Math.abs(pt.x - this.roi.x1) <= edgeTolerance) {
+                            clickedEdge = 'left';
+                        } else if (Math.abs(pt.x - this.roi.x2) <= edgeTolerance) {
+                            clickedEdge = 'right';
+                        }
+                    }
+                    
+                    if (clickedEdge) {
+                        this.dragMode = 'resize-edge';
+                        this.draggedEdge = clickedEdge;
+                        isROIDrag = true;
+                    }
                 }
             }
             
@@ -1199,7 +1514,56 @@ const App = {
                 return;
             }
             
-            // 4. If ROI dragging
+            // 4. Set cursors when hovering over handle / edges / interior
+            if (this.activePage === 'roi' && this.roi.enabled && !this.dragMode && !this.isPanning) {
+                const handleRadius = Math.max(12, 12 / this.zoomScale);
+                const corners = [
+                    { x: this.roi.x1, y: this.roi.y1 }, // TL
+                    { x: this.roi.x2, y: this.roi.y1 }, // TR
+                    { x: this.roi.x2, y: this.roi.y2 }, // BR
+                    { x: this.roi.x1, y: this.roi.y2 }  // BL
+                ];
+                let hoverCorner = -1;
+                for (let i = 0; i < 4; i++) {
+                    const dx = pt.x - corners[i].x;
+                    const dy = pt.y - corners[i].y;
+                    if (Math.sqrt(dx*dx + dy*dy) <= handleRadius) {
+                        hoverCorner = i;
+                        break;
+                    }
+                }
+                
+                if (hoverCorner === 0 || hoverCorner === 2) {
+                    this.baseCanvas.style.cursor = 'nwse-resize';
+                } else if (hoverCorner === 1 || hoverCorner === 3) {
+                    this.baseCanvas.style.cursor = 'nesw-resize';
+                } else {
+                    const edgeTolerance = Math.max(8, 8 / this.zoomScale);
+                    let hoverEdge = null;
+                    if (pt.x >= this.roi.x1 - edgeTolerance && pt.x <= this.roi.x2 + edgeTolerance) {
+                        if (Math.abs(pt.y - this.roi.y1) <= edgeTolerance) hoverEdge = 'top';
+                        else if (Math.abs(pt.y - this.roi.y2) <= edgeTolerance) hoverEdge = 'bottom';
+                    }
+                    if (pt.y >= this.roi.y1 - edgeTolerance && pt.y <= this.roi.y2 + edgeTolerance) {
+                        if (Math.abs(pt.x - this.roi.x1) <= edgeTolerance) hoverEdge = 'left';
+                        else if (Math.abs(pt.x - this.roi.x2) <= edgeTolerance) hoverEdge = 'right';
+                    }
+                    
+                    if (hoverEdge === 'top' || hoverEdge === 'bottom') {
+                        this.baseCanvas.style.cursor = 'ns-resize';
+                    } else if (hoverEdge === 'left' || hoverEdge === 'right') {
+                        this.baseCanvas.style.cursor = 'ew-resize';
+                    } else if (pt.x > this.roi.x1 && pt.x < this.roi.x2 && pt.y > this.roi.y1 && pt.y < this.roi.y2) {
+                        this.baseCanvas.style.cursor = 'grab';
+                    } else {
+                        this.baseCanvas.style.cursor = '';
+                    }
+                }
+            } else if (!this.dragMode && !this.isPanning) {
+                this.baseCanvas.style.cursor = '';
+            }
+            
+            // 5. If ROI dragging
             if (this.activePage === 'roi' && this.roi.enabled && this.dragMode) {
                 if (this.dragMode === 'resize') {
                     // Resize ROI corner
@@ -1216,24 +1580,27 @@ const App = {
                         this.roi.x1 = Math.min(pt.x, this.roi.x2 - 10);
                         this.roi.y2 = Math.max(pt.y, this.roi.y1 + 10);
                     }
-                } else if (this.dragMode === 'move') {
-                    // Move ROI box
-                    const w = this.dragStartOffset.w;
-                    const h = this.dragStartOffset.h;
-                    let newX1 = pt.x - this.dragStartOffset.x;
-                    let newY1 = pt.y - this.dragStartOffset.y;
-                    
-                    // Clamp within image bounds
-                    newX1 = Math.max(0, Math.min(this.originalWidth - w, newX1));
-                    newY1 = Math.max(0, Math.min(this.originalHeight - h, newY1));
-                    
-                    this.roi.x1 = newX1;
-                    this.roi.y1 = newY1;
-                    this.roi.x2 = newX1 + w;
-                    this.roi.y2 = newY1 + h;
+                } else if (this.dragMode === 'resize-edge') {
+                    // Resize ROI edge
+                    if (this.draggedEdge === 'top') {
+                        this.roi.y1 = Math.min(pt.y, this.roi.y2 - 10);
+                    } else if (this.draggedEdge === 'bottom') {
+                        this.roi.y2 = Math.max(pt.y, this.roi.y1 + 10);
+                    } else if (this.draggedEdge === 'left') {
+                        this.roi.x1 = Math.min(pt.x, this.roi.x2 - 10);
+                    } else if (this.draggedEdge === 'right') {
+                        this.roi.x2 = Math.max(pt.x, this.roi.x1 + 10);
+                    }
                 }
                 
+                // Clamp coordinates to image boundaries
+                this.roi.x1 = Math.max(0, Math.min(this.originalWidth, this.roi.x1));
+                this.roi.y1 = Math.max(0, Math.min(this.originalHeight, this.roi.y1));
+                this.roi.x2 = Math.max(0, Math.min(this.originalWidth, this.roi.x2));
+                this.roi.y2 = Math.max(0, Math.min(this.originalHeight, this.roi.y2));
+                
                 this.updateUIInputs();
+                this.invalidateGrayscale();
                 this.redraw();
             }
         });
@@ -1276,7 +1643,7 @@ const App = {
                 this.dragMode = null;
                 this.saveSettingsToStorage();
                 this.updateBatchSummary();
-                this.processImage();
+                this.evaluatePipeline();
             }
         });
     },
@@ -1390,8 +1757,9 @@ const App = {
     loadImage(file) {
         this.currentLoadedFile = file;
         this.imageName = file.name;
-        this.imageFolder = file.webkitRelativePath 
-            ? file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/')) 
+        const relPath = this.getFileRelativePath(file);
+        this.imageFolder = relPath 
+            ? relPath.substring(0, relPath.lastIndexOf('/')) 
             : 'Local File';
             
         this.logMessage(`Loading image file: ${this.imageName}`);
@@ -1419,15 +1787,20 @@ const App = {
                     this.roi.y2 = Math.round(this.originalHeight * 0.9);
                 }
                 
-                // Show info bar
-                document.getElementById('loaded-file-name').innerText = this.imageName;
-                document.getElementById('loaded-image-info').classList.remove('hidden');
-                document.getElementById('canvas-placeholder').classList.add('hidden');
+                // Show info bar (safely guarded)
+                const loadedFileName = document.getElementById('loaded-file-name');
+                if (loadedFileName) loadedFileName.innerText = this.imageName;
+                const loadedImageInfo = document.getElementById('loaded-image-info');
+                if (loadedImageInfo) loadedImageInfo.classList.remove('hidden');
+                
+                const placeholder = document.getElementById('canvas-placeholder');
+                if (placeholder) placeholder.classList.add('hidden');
                 
                 this.updateUIInputs();
                 this.updateBatchSummary();
                 this.zoomToFit();
-                this.processImage();
+                this.invalidateGrayscale();
+                this.evaluatePipeline();
                 this.updateActiveFileHighlight();
             };
             img.src = event.target.result;
@@ -1445,7 +1818,7 @@ const App = {
         }, 300);
     },
 
-    // --- CORE IMAGE PROCESSING PIPELINE ---
+    // --- CORE IMAGE PROCESSING PIPELINE (Full Compatibility Method) ---
     processImage() {
         if (!this.imageLoaded) return;
         
@@ -1454,7 +1827,7 @@ const App = {
         const rx1 = this.roi.enabled ? this.roi.x1 : 0;
         const ry1 = this.roi.enabled ? this.roi.y1 : 0;
         
-        // 1. Extract ROI image data
+        // Extract ROI image data
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = W_ROI;
         tempCanvas.height = H_ROI;
@@ -1462,78 +1835,17 @@ const App = {
         tempCtx.drawImage(this.imageElement, rx1, ry1, W_ROI, H_ROI, 0, 0, W_ROI, H_ROI);
         const roiImageData = tempCtx.getImageData(0, 0, W_ROI, H_ROI);
         
-        // 2. Grayscale Conversion
-        let gray = ImageProcessor.toGrayscale(roiImageData, this.binarization.channel);
-        this.grayArray = gray; // Cache raw grayscale ROI
+        this.invalidateGrayscale();
+        this.runGrayscaleStage(roiImageData);
+        this.runFFTStage(W_ROI, H_ROI);
+        this.runNoiseStage(W_ROI, H_ROI);
+        this.runBinarizationStage();
+        this.runCCLStage(W_ROI, H_ROI);
         
-        // 3. Noise Filter
-        if (this.noise.enabled && this.noise.method !== 'none') {
-            if (this.noise.method === 'median') {
-                gray = ImageProcessor.medianFilter(gray, W_ROI, H_ROI, this.noise.kernelSize);
-            } else if (this.noise.method === 'gaussian') {
-                gray = ImageProcessor.gaussianBlur(gray, W_ROI, H_ROI, this.noise.kernelSize);
-            }
-        }
-        this.noiseArray = gray; // Cache noise-filtered ROI
-        
-        // 4. Threshold Calculation
-        if (this.binarization.method === 'otsu') {
-            this.otsuCalculatedVal = ImageProcessor.calculateOtsuThreshold(gray);
-            const applied = Math.round(this.otsuCalculatedVal * this.binarization.otsuPercent / 100);
-            this.appliedThreshold = Math.max(0, Math.min(255, applied));
-            
-            document.getElementById('otsu-calc-val').innerText = this.otsuCalculatedVal;
-            document.getElementById('otsu-applied-val').innerText = this.appliedThreshold;
-        } else {
-            this.appliedThreshold = this.binarization.fixedValue;
-        }
-        
-        // 5. Binarize
-        const bin = ImageProcessor.binarize(gray, this.appliedThreshold);
-        this.binArray = bin; // Cache binarized ROI
-        
-        // 6. Connected Component Labeling
-        const solids = ImageProcessor.labelComponents(bin, W_ROI, H_ROI, 255);
-        const voids = ImageProcessor.labelComponents(bin, W_ROI, H_ROI, 0);
-        
-        // 7. Calculate geometric data and flag limits
-        const scaleSq = this.umPerPx * this.umPerPx;
-        
-        // We will combine components into a single array
-        this.components = [];
-        let globalId = 1;
-        
-        const processGroup = (group, isSolid) => {
-            const pxLimit = isSolid ? this.limit.solidPx : this.limit.voidPx;
-            for (const c of group) {
-                const area = c.pixels * scaleSq;
-                const dia = 2 * Math.sqrt(area / Math.PI);
-                
-                this.components.push({
-                    id: globalId++,
-                    type: isSolid ? 'solid' : 'void',
-                    pixels: c.pixels,
-                    area: area,
-                    diameter: dia,
-                    xmin: c.xmin,
-                    xmax: c.xmax,
-                    ymin: c.ymin,
-                    ymax: c.ymax,
-                    cx: c.cx,
-                    cy: c.cy,
-                    isBelowLimit: c.pixels < pxLimit,
-                    boundary: c.boundary
-                });
-            }
-        };
-        
-        processGroup(solids, true);
-        processGroup(voids, false);
-        
-        // 8. Render table on Limit page
         this.renderResultsTable();
         this.redraw();
     },
+
 
     renderResultsTable() {
         const tbody = document.querySelector('#results-table tbody');
@@ -1654,24 +1966,49 @@ const App = {
         // 1. Draw base image
         this.baseCtx.drawImage(this.imageElement, 0, 0);
         
-        // 2. Overwrite ROI with processed pixels depending on active page
+        // 2. Overwrite ROI with processed pixels depending on active page and display settings
         const rx1 = this.roi.enabled ? this.roi.x1 : 0;
         const ry1 = this.roi.enabled ? this.roi.y1 : 0;
         const w = this.roi.enabled ? (this.roi.x2 - this.roi.x1) : this.originalWidth;
         const h = this.roi.enabled ? (this.roi.y2 - this.roi.y1) : this.originalHeight;
         
         if (w > 0 && h > 0) {
-            const grayPreviewChk = document.getElementById('chk-gray-preview');
-            const noisePreviewChk = document.getElementById('chk-noise-enable');
-            
-            if (this.activePage === 'grayscale' && grayPreviewChk && grayPreviewChk.checked && this.grayArray) {
-                this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
-            } else if (this.activePage === 'noise' && noisePreviewChk && noisePreviewChk.checked && this.noiseArray) {
-                this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
-            } else if (this.activePage === 'binarization' && this.binArray) {
-                this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
-            } else if (this.activePage === 'limit' && this.binArray) {
-                this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+            if (this.activePage === 'grayscale') {
+                const displayModeRadio = document.querySelector('input[name="gray-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'gray';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                }
+            } else if (this.activePage === 'noise') {
+                const displayModeRadio = document.querySelector('input[name="noise-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'smooth';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'fft' && this.fftArray) {
+                    this.drawProcessedROI(this.fftArray, rx1, ry1, w, h);
+                } else if (displayMode === 'smooth' && this.noiseArray) {
+                    this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
+                }
+            } else if (this.activePage === 'binarization') {
+                const displayModeRadio = document.querySelector('input[name="bin-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'bin';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'noise' && this.noiseArray) {
+                    this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
+                } else if (displayMode === 'bin' && this.binArray) {
+                    this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+                }
+            } else if (this.activePage === 'limit') {
+                const displayModeRadio = document.querySelector('input[name="limit-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'bin';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'noise' && this.noiseArray) {
+                    this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
+                } else if (displayMode === 'bin' && this.binArray) {
+                    this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+                }
             }
         }
         
@@ -1689,7 +2026,8 @@ const App = {
         
         // 5. Draw binary contours and details on analysis pages
         if (['binarization', 'limit', 'batch'].includes(this.activePage)) {
-            const showBoundaries = document.getElementById('chk-bin-boundary').checked;
+            const chkBoundary = document.getElementById('chk-bin-boundary');
+            const showBoundaries = chkBoundary ? chkBoundary.checked : true;
             if (showBoundaries && this.components.length > 0) {
                 this.drawBoundaries();
             }
@@ -1922,10 +2260,87 @@ const App = {
         }
     },
 
+    traverseFileEntries(items) {
+        return new Promise((resolve) => {
+            const files = [];
+            let pending = 0;
+            
+            const traverse = async (entry) => {
+                pending++;
+                if (entry.isFile) {
+                    try {
+                        const file = await new Promise((res, rej) => entry.file(res, rej));
+                        if (file.type.startsWith('image/')) {
+                            const relPath = entry.fullPath.startsWith('/') ? entry.fullPath.substring(1) : entry.fullPath;
+                            Object.defineProperty(file, 'customRelativePath', {
+                                value: relPath,
+                                writable: true,
+                                configurable: true
+                            });
+                            files.push(file);
+                        }
+                    } catch (e) {
+                        console.error('Error reading file entry:', e);
+                    }
+                } else if (entry.isDirectory) {
+                    try {
+                        const dirReader = entry.createReader();
+                        const entries = await new Promise((res) => {
+                            const allEntries = [];
+                            const readAll = () => {
+                                dirReader.readEntries((results) => {
+                                    if (results.length === 0) {
+                                        res(allEntries);
+                                    } else {
+                                        allEntries.push(...results);
+                                        readAll();
+                                    }
+                                }, () => res(allEntries));
+                            };
+                            readAll();
+                        });
+                        for (const child of entries) {
+                            await traverse(child);
+                        }
+                    } catch (e) {
+                        console.error('Error reading directory entry:', e);
+                    }
+                }
+                pending--;
+                if (pending === 0) {
+                    resolve(files);
+                }
+            };
+            
+            for (const item of items) {
+                if (item.kind === 'file') {
+                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                    if (entry) {
+                        traverse(entry);
+                    } else {
+                        const file = item.getAsFile();
+                        if (file && file.type.startsWith('image/')) {
+                            files.push(file);
+                        }
+                    }
+                }
+            }
+            if (pending === 0) {
+                resolve(files);
+            }
+        });
+    },
+
+    getFileRelativePath(file) {
+        return file.customRelativePath || file.webkitRelativePath || '';
+    },
+
     // --- DRAG AND DROP HANDLERS ---
     bindDragAndDropEvents() {
         const dropZone = document.getElementById('drop-zone');
         const container = document.getElementById('preview-panel');
+        const commonLoadCard = document.getElementById('common-load-card');
+        const configDropZone = document.getElementById('config-drop-zone');
         
         container.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -1936,32 +2351,84 @@ const App = {
             dropZone.classList.remove('active');
         });
         
-        dropZone.addEventListener('drop', (e) => {
+        dropZone.addEventListener('drop', async (e) => {
             e.preventDefault();
             dropZone.classList.remove('active');
             
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.name.endsWith('.json')) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        try {
-                            const parsed = JSON.parse(event.target.result);
-                            this.applyJSONConfig(parsed, true);
-                            this.logMessage(`Loaded configuration from drag & drop: ${parsed.name || 'imported'}`);
-                        } catch (err) {
-                            alert('Invalid JSON configuration file');
-                        }
-                    };
-                    reader.readAsText(file);
-                } else if (this.activePage === 'batch') {
-                    this.addFilesToList(files);
-                } else {
-                    this.loadImage(file);
+            const items = e.dataTransfer.items;
+            if (items && items.length > 0) {
+                const files = await this.traverseFileEntries(items);
+                if (files.length > 0) {
+                    if (this.activePage === 'batch') {
+                        this.addFilesToList(files);
+                    } else {
+                        this.loadImage(files[0]);
+                    }
                 }
             }
         });
+        
+        if (commonLoadCard) {
+            commonLoadCard.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                commonLoadCard.classList.add('drag-over');
+            });
+            commonLoadCard.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                commonLoadCard.classList.remove('drag-over');
+            });
+            commonLoadCard.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                commonLoadCard.classList.remove('drag-over');
+                
+                const items = e.dataTransfer.items;
+                if (items && items.length > 0) {
+                    const files = await this.traverseFileEntries(items);
+                    if (files.length > 0) {
+                        this.addFilesToList(files);
+                    }
+                }
+            });
+        }
+        
+        if (configDropZone) {
+            configDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configDropZone.classList.add('drag-over');
+            });
+            configDropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configDropZone.classList.remove('drag-over');
+            });
+            configDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configDropZone.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const file = files[0];
+                    if (file.name.endsWith('.json')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const parsed = JSON.parse(event.target.result);
+                                this.applyJSONConfig(parsed, true);
+                                this.logMessage(`Loaded configuration from drag & drop: ${parsed.name || 'imported'}`);
+                            } catch (err) {
+                                alert('Invalid JSON configuration file');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                }
+            });
+        }
     },
 
     // --- BATCH PROCESSING ---
@@ -2055,8 +2522,9 @@ const App = {
             
             // Absolute folder path display logic
             let folder = this.inputDirectoryPath || 'Local';
-            if (file.webkitRelativePath) {
-                const relFolder = file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/'));
+            const relPath = this.getFileRelativePath(file);
+            if (relPath) {
+                const relFolder = relPath.substring(0, relPath.lastIndexOf('/'));
                 if (this.inputDirectoryPath) {
                     const cleanBase = this.inputDirectoryPath.replace(/\/$/, '').replace(/\\$/, '');
                     folder = `${cleanBase}\\${relFolder.replace(/\//g, '\\')}`;
@@ -2151,6 +2619,7 @@ const App = {
         batchLogText += `Conditions Summary:\n`;
         batchLogText += `- scale: ${this.umPerPx.toFixed(3)} μm/px\n`;
         batchLogText += `- roi: enabled=${this.roi.enabled}, bounds=(${this.roi.x1},${this.roi.y1}) to (${this.roi.x2},${this.roi.y2})\n`;
+        batchLogText += `- fft: enabled=${this.fft.enabled}, highpass=${this.fft.highPassLimit}px, lowpass=${this.fft.lowPassLimit}px\n`;
         batchLogText += `- noise: enabled=${this.noise.enabled}, method=${this.noise.method}, size=${this.noise.kernelSize}\n`;
         batchLogText += `- binarization: channel=${this.binarization.channel}, method=${this.binarization.method}, fixedVal=${this.binarization.fixedValue}, otsu%=${this.binarization.otsuPercent}\n`;
         batchLogText += `- limit: solid=${this.limit.solidPx}px, void=${this.limit.voidPx}px\n`;
@@ -2199,6 +2668,11 @@ const App = {
                 
                 // 3. Grayscale
                 let gray = ImageProcessor.toGrayscale(roiImgData, this.binarization.channel);
+                
+                // 3.5. FFT Bandpass Filter
+                if (this.fft.enabled) {
+                    gray = ImageProcessor.fftBandpassFilter(gray, W_ROI, H_ROI, this.fft.highPassLimit, this.fft.lowPassLimit);
+                }
                 
                 // 4. Noise Filter
                 if (this.noise.enabled && this.noise.method !== 'none') {
@@ -2281,10 +2755,11 @@ const App = {
                 // 9. Render Labeled Image
                 const labeledBlob = await this.renderLabeledImageBlob(img, rx1, ry1, W_ROI, H_ROI, combinedComps, drawLabels);
                 
+                const fileRelPath = this.getFileRelativePath(file);
                 results.push({
                     timestamp: timestamp,
                     fileName: file.name,
-                    folderName: file.webkitRelativePath ? file.webkitRelativePath.substring(0, file.webkitRelativePath.lastIndexOf('/')) : 'Local',
+                    folderName: fileRelPath ? fileRelPath.substring(0, fileRelPath.lastIndexOf('/')) : 'Local',
                     roiArea,
                     solidArea: solidAreaTotal,
                     solidity,

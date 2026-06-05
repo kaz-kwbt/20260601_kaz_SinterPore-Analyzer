@@ -26,7 +26,15 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.1.0</span>
+                <span class="app-version">v1.2.0</span>
+            </div>
+            <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
+                <button class="icon-btn" id="btn-prev-page" title="前のページ">
+                    <span class="material-icons-round">navigate_before</span>
+                </button>
+                <button class="icon-btn" id="btn-next-page" title="次のページ">
+                    <span class="material-icons-round">navigate_next</span>
+                </button>
             </div>
         </header>
 
@@ -158,32 +166,22 @@
                             </button>
                         </div>
                         
-                        <!-- Absolute Path Text Input -->
-                        <div class="input-group mb-3">
-                            <label for="input-folder-abs-path" data-i18n="label_folder_abs_path">入力フォルダ絶対パス (Local置き換え用)</label>
-                            <input type="text" id="input-folder-abs-path" placeholder="C:\Users\Kaz\Downloads\images" style="padding:6px 10px; font-size:12px;">
-                        </div>
-                        
                         <!-- Settings Config Load / Save -->
-                        <div class="card-header border-top" style="padding: 12px 0 6px 0; border-bottom: none; display:flex; align-items:center; gap:6px;">
-                            <span class="material-icons-round header-icon" style="font-size:16px;">settings</span>
-                            <h2 data-i18n="header_config_io" style="font-size:11px; margin:0; text-transform:none;">処理条件設定管理</h2>
-                        </div>
-                        <div class="io-buttons-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                            <button class="action-btn" id="btn-load-config" style="padding:8px 10px; font-size:12px;">
-                                <span class="material-icons-round" style="font-size:16px;">settings_backup_restore</span>
-                                <span data-i18n="btn_load_settings">設定読込</span>
-                            </button>
-                            <button class="action-btn btn-primary" id="btn-save-config" style="padding:8px 10px; font-size:12px;">
-                                <span class="material-icons-round" style="font-size:16px;">save</span>
-                                <span data-i18n="btn_save_settings_as">設定別名保存</span>
-                            </button>
-                        </div>
-                        
-                        <!-- Image Info Bar -->
-                        <div class="image-info-bar hidden" id="loaded-image-info" style="margin: 12px 0 0 0; padding:6px 10px;">
-                            <span class="info-label" data-i18n="loaded_file">読込中:</span>
-                            <span class="info-value text-truncate" id="loaded-file-name" style="max-width: 220px; font-size:11px;">--</span>
+                        <div id="config-drop-zone" style="border: 2px dashed transparent; border-radius: 12px; transition: var(--transition-smooth);">
+                            <div class="card-header border-top" style="padding: 12px 0 6px 0; border-bottom: none; display:flex; align-items:center; gap:6px;">
+                                <span class="material-icons-round header-icon" style="font-size:16px;">settings</span>
+                                <h2 data-i18n="header_config_io" style="font-size:11px; margin:0; text-transform:none;">処理条件設定管理</h2>
+                            </div>
+                            <div class="io-buttons-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding: 0 0 10px 0;">
+                                <button class="action-btn" id="btn-load-config" style="padding:8px 10px; font-size:12px;">
+                                    <span class="material-icons-round" style="font-size:16px;">settings_backup_restore</span>
+                                    <span data-i18n="btn_load_settings">設定読込</span>
+                                </button>
+                                <button class="action-btn btn-primary" id="btn-save-config" style="padding:8px 10px; font-size:12px;">
+                                    <span class="material-icons-round" style="font-size:16px;">save</span>
+                                    <span data-i18n="btn_save_settings_as">設定別名保存</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -279,19 +277,19 @@
                         </div>
                         
                         <div class="measure-info-box">
-                            <div class="measure-row">
-                                <span class="measure-label">dx:</span>
-                                <span class="measure-value" id="scale-dx">0 px</span>
-                                <button class="apply-measure-btn" data-axis="x" disabled><span data-i18n="btn_apply">適用</span></button>
+                            <div class="measure-row" style="margin-bottom: 8px;">
+                                <span class="measure-label">dx (px):</span>
+                                <input type="number" id="input-scale-dx-manual" value="0.0" min="0.0" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <button class="apply-measure-btn" data-axis="x" id="btn-apply-x-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
-                            <div class="measure-row">
-                                <span class="measure-label">dy:</span>
-                                <span class="measure-value" id="scale-dy">0 px</span>
-                                <button class="apply-measure-btn" data-axis="y" disabled><span data-i18n="btn_apply">適用</span></button>
+                            <div class="measure-row" style="margin-bottom: 8px;">
+                                <span class="measure-label">dy (px):</span>
+                                <input type="number" id="input-scale-dy-manual" value="0.0" min="0.0" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <button class="apply-measure-btn" data-axis="y" id="btn-apply-y-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                             <div class="measure-row highlighted">
                                 <span class="measure-label">d (px):</span>
-                                <input type="number" id="input-scale-d-manual" value="0.0" min="0.1" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <input type="number" id="input-scale-d-manual" value="0.0" min="0.0" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
                                 <button class="apply-measure-btn" data-axis="d" id="btn-apply-d-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                         </div>
@@ -355,11 +353,18 @@
                         <h2 data-i18n="header_gray_display">表示設定</h2>
                     </div>
                     <div class="card-content">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="chk-gray-preview" checked>
-                            <span class="checkmark"></span>
-                            <span data-i18n="chk_gray_preview">グレースケール表示 ON/OFF</span>
-                        </label>
+                        <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="gray-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span>元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="gray-display-mode" value="gray" checked>
+                                <span class="custom-radio"></span>
+                                <span>グレースケール画像 (Grayscale)</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="card-header border-top">
@@ -368,13 +373,29 @@
                     </div>
                     <div class="card-content">
                         <div class="input-group">
-                            <label for="select-gray-channel" data-i18n="label_channel">グレースケール変換チャネル</label>
-                            <select id="select-gray-channel">
-                                <option value="luminance" data-i18n="opt_luminance">輝度 (Luminance)</option>
-                                <option value="red">Red (赤色チャネル)</option>
-                                <option value="green">Green (緑色チャネル)</option>
-                                <option value="blue">Blue (青色チャネル)</option>
-                            </select>
+                            <label data-i18n="label_channel">グレースケール変換チャネル</label>
+                            <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
+                                <label class="radio-label">
+                                    <input type="radio" name="gray-channel-choice" value="luminance" checked>
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_luminance">輝度 (Luminance)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="gray-channel-choice" value="red">
+                                    <span class="custom-radio"></span>
+                                    <span>Red (赤色チャネル)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="gray-channel-choice" value="green">
+                                    <span class="custom-radio"></span>
+                                    <span>Green (緑色チャネル)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="gray-channel-choice" value="blue">
+                                    <span class="custom-radio"></span>
+                                    <span>Blue (青色チャネル)</span>
+                                </label>
+                            </div>
                         </div>
                         <p class="instruction-text" data-i18n="gray_instruction">
                             ※ カラー画像を2値化する前に、輝度または特定の色彩情報を抽出してグレースケール化します。
@@ -389,33 +410,103 @@
                         <h2 data-i18n="header_noise_display">表示設定</h2>
                     </div>
                     <div class="card-content">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="chk-noise-enable" checked>
-                            <span class="checkmark"></span>
-                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
-                        </label>
+                        <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="noise-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span>元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-display-mode" value="gray">
+                                <span class="custom-radio"></span>
+                                <span>グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-display-mode" value="fft">
+                                <span class="custom-radio"></span>
+                                <span>FFTバンドパス画像 (FFT Bandpass)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-display-mode" value="smooth" checked>
+                                <span class="custom-radio"></span>
+                                <span>平滑処理画像 (Smoothed)</span>
+                            </label>
+                        </div>
                     </div>
 
+                    <!-- FFT BANDPASS FILTER SETTINGS -->
+                    <div class="card-header border-top">
+                        <span class="material-icons-round header-icon">waves</span>
+                        <span>FFTバンドパスフィルタ</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group mb-4">
+                            <label class="radio-label">
+                                <input type="radio" name="fft-enable" value="enabled">
+                                <span class="custom-radio"></span>
+                                <span>あり (Enabled)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="fft-enable" value="disabled" checked>
+                                <span class="custom-radio"></span>
+                                <span>なし (None)</span>
+                            </label>
+                        </div>
+                        <div class="input-group mb-3" id="fft-highpass-group">
+                            <label for="input-fft-highpass">ハイパスフィルタ制限 (Low Cutoff px)</label>
+                            <input type="number" id="input-fft-highpass" value="5" min="0" step="1">
+                        </div>
+                        <div class="input-group" id="fft-lowpass-group">
+                            <label for="input-fft-lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
+                            <input type="number" id="input-fft-lowpass" value="100" min="1" step="1">
+                        </div>
+                    </div>
+
+                    <!-- SMOOTHING SETTINGS -->
                     <div class="card-header border-top">
                         <span class="material-icons-round header-icon">blur_on</span>
-                        <h2 data-i18n="header_noise_condition">ノイズ除去設定</h2>
+                        <h2 data-i18n="header_noise_condition">平滑処理（メディアン・ガウシアン）</h2>
                     </div>
                     <div class="card-content">
                         <div class="input-group mb-4">
-                            <label for="select-noise-method" data-i18n="label_noise_method">ノイズ除去手法</label>
-                            <select id="select-noise-method">
-                                <option value="median" data-i18n="opt_median">メディアンフィルタ (推奨)</option>
-                                <option value="gaussian" data-i18n="opt_gaussian">ガウシアンフィルタ</option>
-                                <option value="none" data-i18n="opt_none">なし</option>
-                            </select>
+                            <label data-i18n="label_noise_method">平滑処理の種類</label>
+                            <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-method-choice" value="median" checked>
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_median">メディアンフィルタ (推奨)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-method-choice" value="gaussian">
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_gaussian">ガウシアンフィルタ</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-method-choice" value="none">
+                                    <span class="custom-radio"></span>
+                                    <span data-i18n="opt_none">なし</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="input-group" id="noise-kernel-group">
-                            <label for="select-noise-kernel" data-i18n="label_noise_kernel">フィルタの強度 (窓サイズ)</label>
-                            <select id="select-noise-kernel">
-                                <option value="3">3 × 3 (弱)</option>
-                                <option value="5" selected>5 × 5 (中)</option>
-                                <option value="7">7 × 7 (強)</option>
-                            </select>
+                        <div class="input-group" id="noise-kernel-choice-group">
+                            <label data-i18n="label_noise_kernel">フィルタの強度 (窓サイズ)</label>
+                            <div class="radio-group" style="display:flex; gap:12px;">
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-kernel-choice" value="3">
+                                    <span class="custom-radio"></span>
+                                    <span>3 × 3 (弱)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-kernel-choice" value="5" checked>
+                                    <span class="custom-radio"></span>
+                                    <span>5 × 5 (中)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="noise-kernel-choice" value="7">
+                                    <span class="custom-radio"></span>
+                                    <span>7 × 7 (強)</span>
+                                </label>
+                            </div>
                         </div>
                         <p class="instruction-text" data-i18n="noise_instruction">
                             ※ メディアンフィルタは輪郭をシャープに保ったまま高周波ノイズを取り除くため、焼結体の空隙検出に有効です。
@@ -424,17 +515,35 @@
                 </div>
 
                 <!-- PAGE 5: BINARIZATION SETTINGS -->
+                <!-- PAGE 5: BINARIZATION SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="binarization">
                     <div class="card-header">
                         <span class="material-icons-round header-icon">visibility</span>
                         <h2 data-i18n="header_binarize_display">表示設定</h2>
                     </div>
                     <div class="card-content">
-                        <label class="checkbox-container mb-3">
-                            <input type="checkbox" id="chk-bin-noise" checked>
-                            <span class="checkmark"></span>
-                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
-                        </label>
+                        <div class="radio-group vertical-radio-group mb-3" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="bin-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span>元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bin-display-mode" value="gray">
+                                <span class="custom-radio"></span>
+                                <span>グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bin-display-mode" value="noise">
+                                <span class="custom-radio"></span>
+                                <span>ノイズ除去画像 (Noise Removed)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bin-display-mode" value="bin" checked>
+                                <span class="custom-radio"></span>
+                                <span>2値化画像 (Binarized)</span>
+                            </label>
+                        </div>
                         <label class="checkbox-container">
                             <input type="checkbox" id="chk-bin-boundary" checked>
                             <span class="checkmark"></span>
@@ -447,8 +556,6 @@
                         <h2 data-i18n="header_binarize_condition">2値化設定</h2>
                     </div>
                     <div class="card-content">
-                        <div class="input-group mb-4">
-
                         <div class="input-group mb-4">
                             <label data-i18n="label_threshold_method">閾値算出方法</label>
                             <div class="radio-group">
@@ -510,11 +617,28 @@
                         <h2 data-i18n="header_limit_display">表示設定</h2>
                     </div>
                     <div class="card-content">
-                        <label class="checkbox-container mb-3">
-                            <input type="checkbox" id="chk-limit-noise" checked>
-                            <span class="checkmark"></span>
-                            <span data-i18n="chk_noise_enable">ノイズ除去をプレビューに反映</span>
-                        </label>
+                        <div class="radio-group vertical-radio-group mb-3" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span>元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="gray">
+                                <span class="custom-radio"></span>
+                                <span>グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="noise">
+                                <span class="custom-radio"></span>
+                                <span>ノイズ除去画像 (Noise Removed)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="bin" checked>
+                                <span class="custom-radio"></span>
+                                <span>2値化画像 (Binarized)</span>
+                            </label>
+                        </div>
                         <label class="checkbox-container mb-3">
                             <input type="checkbox" id="chk-limit-boundary" checked>
                             <span class="checkmark"></span>

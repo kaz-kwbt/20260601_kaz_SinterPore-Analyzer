@@ -304,5 +304,178 @@ const ImageProcessor = {
         }
         
         return components;
+    },
+
+    /**
+     * Apply 2D FFT Bandpass Filter to a grayscale array
+     * @param {Uint8Array} src 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} lowCutoff (High-pass limit: cuts off frequencies below this radius)
+     * @param {number} highCutoff (Low-pass limit: cuts off frequencies above this radius)
+     * @returns {Uint8Array}
+     */
+    fftBandpassFilter(src, W, H, lowCutoff, highCutoff) {
+        const getNextPowerOf2 = (n) => {
+            let p = 1;
+            while (p < n) p <<= 1;
+            return p;
+        };
+        const W_pad = getNextPowerOf2(W);
+        const H_pad = getNextPowerOf2(H);
+        
+        const size = W_pad * H_pad;
+        const re = new Float32Array(size);
+        const im = new Float32Array(size);
+        
+        for (let y = 0; y < H_pad; y++) {
+            const srcY = Math.min(y, H - 1);
+            const rowOffsetSrc = srcY * W;
+            const rowOffsetDst = y * W_pad;
+            for (let x = 0; x < W_pad; x++) {
+                const srcX = Math.min(x, W - 1);
+                re[rowOffsetDst + x] = src[rowOffsetSrc + srcX];
+            }
+        }
+        
+        // Row-wise FFT
+        const rowRe = new Float32Array(W_pad);
+        const rowIm = new Float32Array(W_pad);
+        for (let y = 0; y < H_pad; y++) {
+            const offset = y * W_pad;
+            for (let x = 0; x < W_pad; x++) {
+                rowRe[x] = re[offset + x];
+                rowIm[x] = 0;
+            }
+            this.fft1d(rowRe, rowIm, 1);
+            for (let x = 0; x < W_pad; x++) {
+                re[offset + x] = rowRe[x];
+                im[offset + x] = rowIm[x];
+            }
+        }
+        
+        // Column-wise FFT
+        const colRe = new Float32Array(H_pad);
+        const colIm = new Float32Array(H_pad);
+        for (let x = 0; x < W_pad; x++) {
+            for (let y = 0; y < H_pad; y++) {
+                colRe[y] = re[y * W_pad + x];
+                colIm[y] = im[y * W_pad + x];
+            }
+            this.fft1d(colRe, colIm, 1);
+            for (let y = 0; y < H_pad; y++) {
+                re[y * W_pad + x] = colRe[y];
+                im[y * W_pad + x] = colIm[y];
+            }
+        }
+        
+        const cx = W_pad / 2;
+        const cy = H_pad / 2;
+        
+        for (let y = 0; y < H_pad; y++) {
+            const v = y < cy ? y : y - H_pad;
+            const rowOffset = y * W_pad;
+            for (let x = 0; x < W_pad; x++) {
+                const u = x < cx ? x : x - W_pad;
+                const dist = Math.sqrt(u * u + v * v);
+                if (dist < lowCutoff || dist > highCutoff) {
+                    re[rowOffset + x] = 0;
+                    im[rowOffset + x] = 0;
+                }
+            }
+        }
+        
+        // Column-wise IFFT
+        for (let x = 0; x < W_pad; x++) {
+            for (let y = 0; y < H_pad; y++) {
+                colRe[y] = re[y * W_pad + x];
+                colIm[y] = im[y * W_pad + x];
+            }
+            this.fft1d(colRe, colIm, -1);
+            for (let y = 0; y < H_pad; y++) {
+                re[y * W_pad + x] = colRe[y];
+                im[y * W_pad + x] = colIm[y];
+            }
+        }
+        
+        // Row-wise IFFT
+        for (let y = 0; y < H_pad; y++) {
+            const offset = y * W_pad;
+            for (let x = 0; x < W_pad; x++) {
+                rowRe[x] = re[offset + x];
+                rowIm[x] = im[offset + x];
+            }
+            this.fft1d(rowRe, rowIm, -1);
+            for (let x = 0; x < W_pad; x++) {
+                re[offset + x] = rowRe[x];
+            }
+        }
+        
+        const dst = new Uint8Array(W * H);
+        for (let y = 0; y < H; y++) {
+            const srcOffset = y * W_pad;
+            const dstOffset = y * W;
+            for (let x = 0; x < W; x++) {
+                const val = re[srcOffset + x];
+                dst[dstOffset + x] = Math.max(0, Math.min(255, val));
+            }
+        }
+        return dst;
+    },
+    
+    // Cooley-Tukey 1D FFT helper
+    fft1d(re, im, direction) {
+        const n = re.length;
+        if (n <= 1) return;
+        
+        // Bit reversal
+        for (let i = 0, j = 0; i < n; i++) {
+            if (i < j) {
+                let temp = re[i]; re[i] = re[j]; re[j] = temp;
+                temp = im[i]; im[i] = im[j]; im[j] = temp;
+            }
+            let bit = n >> 1;
+            while (bit & j) {
+                j ^= bit;
+                bit >>= 1;
+            }
+            j ^= bit;
+        }
+        
+        // Butterflies
+        for (let len = 2; len <= n; len <<= 1) {
+            const angle = (2 * Math.PI / len) * direction;
+            const wlen_re = Math.cos(angle);
+            const wlen_im = Math.sin(angle);
+            for (let i = 0; i < n; i += len) {
+                let w_re = 1.0;
+                let w_im = 0.0;
+                const half = len >> 1;
+                for (let j = 0; j < half; j++) {
+                    const u_idx = i + j;
+                    const v_idx = i + j + half;
+                    const u_re = re[u_idx];
+                    const u_im = im[u_idx];
+                    
+                    const t_re = re[v_idx] * w_re - im[v_idx] * w_im;
+                    const t_im = re[v_idx] * w_im + im[v_idx] * w_re;
+                    re[u_idx] = u_re + t_re;
+                    im[u_idx] = u_im + t_im;
+                    re[v_idx] = u_re - t_re;
+                    im[v_idx] = u_im - t_im;
+                    
+                    const next_w_re = w_re * wlen_re - w_im * wlen_im;
+                    w_im = w_re * wlen_im + w_im * wlen_re;
+                    w_re = next_w_re;
+                }
+            }
+        }
+        
+        if (direction === -1) {
+            for (let i = 0; i < n; i++) {
+                re[i] /= n;
+                im[i] /= n;
+            }
+        }
     }
 };

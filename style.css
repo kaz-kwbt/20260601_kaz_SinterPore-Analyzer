@@ -1195,3 +1195,21 @@ input[type="number"]:focus, select:focus, textarea:focus {
     font-weight: 600;
     color: #ffffff !important;
 }
+
+/* Vertical radio button group */
+.vertical-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Drag and drop active hover visual styles */
+#common-load-card.drag-over {
+    border: 2px dashed var(--primary) !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+}
+
+#config-drop-zone.drag-over {
+    border: 2px dashed var(--primary) !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+}
