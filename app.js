@@ -24,7 +24,7 @@ const I18n = {
             nav_limit: "下限面積設定",
             nav_batch: "一括処理",
             drop_message: "画像をここにドラッグ＆ドロップ",
-            load_image_hint: "右パネルから画像を読み込むか、ここにドロップしてください。",
+            load_image_hint: "右パネルの処理ファイルリストから画像を読み込むか、ファイルを追加してください。",
             page_general_title: "その他設定",
             page_scale_title: "スケール設定",
             page_roi_title: "ROI設定",
@@ -130,7 +130,7 @@ const I18n = {
             nav_limit: "Lower Limit Area",
             nav_batch: "Batch Process",
             drop_message: "Drag & Drop images here",
-            load_image_hint: "Load an image from the right panel or drop it here.",
+            load_image_hint: "Load an image from the processing list on the right panel or add files.",
             page_general_title: "General Settings",
             page_scale_title: "Scale Settings",
             page_roi_title: "ROI Settings",
@@ -236,7 +236,7 @@ const I18n = {
             nav_limit: "下限面积设置",
             nav_batch: "批量处理",
             drop_message: "将图片拖放到此处",
-            load_image_hint: "从右侧面板载入图片，或将其拖放到此处。",
+            load_image_hint: "从右侧面板的待处理文件列表载入图片，或添加文件。",
             page_general_title: "其他设置",
             page_scale_title: "比例尺设置",
             page_roi_title: "ROI设置",
@@ -659,7 +659,7 @@ const App = {
         const needsFFT = ['noise', 'binarization', 'limit'].includes(this.activePage);
         const needsNoise = ['noise', 'binarization', 'limit'].includes(this.activePage);
         const needsBinarization = ['binarization', 'limit'].includes(this.activePage);
-        const needsCCL = ['limit'].includes(this.activePage);
+        const needsCCL = ['binarization', 'limit'].includes(this.activePage);
         
         if (needsGrayscale) {
             if (!this.isGrayscaleStageValid || !this.grayArray) {
@@ -1733,8 +1733,16 @@ const App = {
         const dy = Math.abs(this.scaleEnd.y - this.scaleStart.y);
         const d = Math.sqrt(dx*dx + dy*dy);
         
-        document.getElementById('scale-dx').innerText = `${dx.toFixed(0)} px`;
-        document.getElementById('scale-dy').innerText = `${dy.toFixed(0)} px`;
+        const dxManual = document.getElementById('input-scale-dx-manual');
+        if (dxManual) {
+            dxManual.value = Math.round(dx);
+            dxManual.dispatchEvent(new Event('input'));
+        }
+        const dyManual = document.getElementById('input-scale-dy-manual');
+        if (dyManual) {
+            dyManual.value = Math.round(dy);
+            dyManual.dispatchEvent(new Event('input'));
+        }
         
         const manualInput = document.getElementById('input-scale-d-manual');
         if (manualInput) {
@@ -1752,6 +1760,34 @@ const App = {
                 btn.disabled = d === 0;
             }
         });
+    },
+
+    clearCachesAndResults() {
+        this.grayArray = null;
+        this.fftArray = null;
+        this.noiseArray = null;
+        this.binArray = null;
+        this.components = [];
+        this.selectedCompId = null;
+        this.scaleStart = null;
+        this.scaleEnd = null;
+        this.isMeasuringScale = false;
+        
+        // Reset manual scale inputs as well
+        const dxManual = document.getElementById('input-scale-dx-manual');
+        if (dxManual) dxManual.value = "0";
+        const dyManual = document.getElementById('input-scale-dy-manual');
+        if (dyManual) dyManual.value = "0";
+        const dManual = document.getElementById('input-scale-d-manual');
+        if (dManual) dManual.value = "0.0";
+        
+        // Disable apply buttons
+        const btnApplyX = document.getElementById('btn-apply-x-measure');
+        if (btnApplyX) btnApplyX.disabled = true;
+        const btnApplyY = document.getElementById('btn-apply-y-measure');
+        if (btnApplyY) btnApplyY.disabled = true;
+        const btnApplyD = document.getElementById('btn-apply-d-measure');
+        if (btnApplyD) btnApplyD.disabled = true;
     },
 
     loadImage(file) {
@@ -1796,11 +1832,12 @@ const App = {
                 const placeholder = document.getElementById('canvas-placeholder');
                 if (placeholder) placeholder.classList.add('hidden');
                 
+                this.clearCachesAndResults();
                 this.updateUIInputs();
                 this.updateBatchSummary();
                 this.zoomToFit();
                 this.invalidateGrayscale();
-                this.evaluatePipeline();
+                this.processImage();
                 this.updateActiveFileHighlight();
             };
             img.src = event.target.result;
@@ -2337,36 +2374,8 @@ const App = {
 
     // --- DRAG AND DROP HANDLERS ---
     bindDragAndDropEvents() {
-        const dropZone = document.getElementById('drop-zone');
-        const container = document.getElementById('preview-panel');
         const commonLoadCard = document.getElementById('common-load-card');
         const configDropZone = document.getElementById('config-drop-zone');
-        
-        container.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('active');
-        });
-        
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('active');
-        });
-        
-        dropZone.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('active');
-            
-            const items = e.dataTransfer.items;
-            if (items && items.length > 0) {
-                const files = await this.traverseFileEntries(items);
-                if (files.length > 0) {
-                    if (this.activePage === 'batch') {
-                        this.addFilesToList(files);
-                    } else {
-                        this.loadImage(files[0]);
-                    }
-                }
-            }
-        });
         
         if (commonLoadCard) {
             commonLoadCard.addEventListener('dragover', (e) => {
@@ -2389,7 +2398,13 @@ const App = {
                     const files = await this.traverseFileEntries(items);
                     if (files.length > 0) {
                         this.addFilesToList(files);
+                        return;
                     }
+                }
+                
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    this.addFilesToList(files);
                 }
             });
         }

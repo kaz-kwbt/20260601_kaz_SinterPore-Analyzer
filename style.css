@@ -299,14 +299,14 @@ body {
     width: 100%;
     height: 100%;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: safe center;
+    justify-content: safe center;
     background-color: rgba(6, 8, 12, 0.8);
     overflow: auto;
 }
 
 #canvas-wrapper {
-    margin: auto;
+    margin: 0;
     position: relative;
     flex-shrink: 0;
     display: none;
@@ -915,8 +915,6 @@ input[type="number"]:focus, select:focus, textarea:focus {
 .batch-summary-panel {
     background: rgba(0, 0, 0, 0.15);
     padding: 16px;
-    max-height: 150px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;

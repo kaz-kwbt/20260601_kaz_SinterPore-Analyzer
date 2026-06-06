@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.2.0</span>
+                <span class="app-version">v1.3.0</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -85,14 +85,6 @@
         <!-- CENTER PREVIEW PANEL -->
         <main class="preview-panel" id="preview-panel">
             <div class="preview-card glass-panel">
-                <!-- Drag and Drop Overlay Zone -->
-                <div class="drop-zone" id="drop-zone">
-                    <div class="drop-zone-content">
-                        <span class="material-icons-round drop-icon">cloud_upload</span>
-                        <p class="drop-text" data-i18n="drop_message">画像をここにドラッグ＆ドロップ</p>
-                    </div>
-                </div>
-
                 <div class="preview-canvas-container" id="canvas-container">
                     <div id="canvas-wrapper">
                         <canvas id="base-canvas"></canvas>
@@ -100,7 +92,7 @@
                     </div>
                     <div class="canvas-placeholder" id="canvas-placeholder">
                         <span class="material-icons-round placeholder-icon">image</span>
-                        <p data-i18n="load_image_hint">右パネルから画像を読み込むか、ここにドロップしてください。</p>
+                        <p data-i18n="load_image_hint">右パネルの処理ファイルリストから画像を読み込むか、ファイルを追加してください。</p>
                     </div>
                 </div>
 
@@ -279,12 +271,12 @@
                         <div class="measure-info-box">
                             <div class="measure-row" style="margin-bottom: 8px;">
                                 <span class="measure-label">dx (px):</span>
-                                <input type="number" id="input-scale-dx-manual" value="0.0" min="0.0" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <input type="number" id="input-scale-dx-manual" value="0" min="0" step="1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
                                 <button class="apply-measure-btn" data-axis="x" id="btn-apply-x-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                             <div class="measure-row" style="margin-bottom: 8px;">
                                 <span class="measure-label">dy (px):</span>
-                                <input type="number" id="input-scale-dy-manual" value="0.0" min="0.0" step="0.1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
+                                <input type="number" id="input-scale-dy-manual" value="0" min="0" step="1" style="width: 100px; padding: 4px 8px; font-family: monospace; text-align: right; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; margin-right: 10px; outline:none;">
                                 <button class="apply-measure-btn" data-axis="y" id="btn-apply-y-measure" disabled><span data-i18n="btn_apply">適用</span></button>
                             </div>
                             <div class="measure-row highlighted">
