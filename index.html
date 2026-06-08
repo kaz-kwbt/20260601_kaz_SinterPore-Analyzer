@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.3.0</span>
+                <span class="app-version">v1.4.0</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -251,8 +251,10 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="scale">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">analytics</span>
                         <h2 data-i18n="header_scale_result">測定結果・計算</h2>
                     </div>
@@ -304,8 +306,10 @@
                             <span data-i18n="chk_roi_enable">ROI領域を表示する</span>
                         </label>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="roi">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">tune</span>
                         <h2 data-i18n="header_roi_condition">ROI 範囲設定</h2>
                     </div>
@@ -349,17 +353,19 @@
                             <label class="radio-label">
                                 <input type="radio" name="gray-display-mode" value="original">
                                 <span class="custom-radio"></span>
-                                <span>元画像 (Original)</span>
+                                <span data-i18n="opt_original">元画像</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="gray-display-mode" value="gray" checked>
                                 <span class="custom-radio"></span>
-                                <span>グレースケール画像 (Grayscale)</span>
+                                <span data-i18n="opt_gray">グレースケール画像</span>
                             </label>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="grayscale">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">filter_hdr</span>
                         <h2 data-i18n="header_gray_condition">グレースケール変換設定</h2>
                     </div>
@@ -375,17 +381,17 @@
                                 <label class="radio-label">
                                     <input type="radio" name="gray-channel-choice" value="red">
                                     <span class="custom-radio"></span>
-                                    <span>Red (赤色チャネル)</span>
+                                    <span data-i18n="opt_red">Red (赤色チャネル)</span>
                                 </label>
                                 <label class="radio-label">
                                     <input type="radio" name="gray-channel-choice" value="green">
                                     <span class="custom-radio"></span>
-                                    <span>Green (緑色チャネル)</span>
+                                    <span data-i18n="opt_green">Green (緑色チャネル)</span>
                                 </label>
                                 <label class="radio-label">
                                     <input type="radio" name="gray-channel-choice" value="blue">
                                     <span class="custom-radio"></span>
-                                    <span>Blue (青色チャネル)</span>
+                                    <span data-i18n="opt_blue">Blue (青色チャネル)</span>
                                 </label>
                             </div>
                         </div>
@@ -406,58 +412,62 @@
                             <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="original">
                                 <span class="custom-radio"></span>
-                                <span>元画像 (Original)</span>
+                                <span data-i18n="opt_original">元画像 (Original)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="gray">
                                 <span class="custom-radio"></span>
-                                <span>グレースケール画像 (Grayscale)</span>
+                                <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="fft">
                                 <span class="custom-radio"></span>
-                                <span>FFTバンドパス画像 (FFT Bandpass)</span>
+                                <span data-i18n="opt_fft">FFTバンドパス画像 (FFT Bandpass)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="smooth" checked>
                                 <span class="custom-radio"></span>
-                                <span>平滑処理画像 (Smoothed)</span>
+                                <span data-i18n="opt_smoothed">平滑処理画像 (Smoothed)</span>
                             </label>
                         </div>
                     </div>
+                </div>
 
-                    <!-- FFT BANDPASS FILTER SETTINGS -->
-                    <div class="card-header border-top">
+                <!-- FFT BANDPASS FILTER SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="noise">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">waves</span>
-                        <span>FFTバンドパスフィルタ</span>
+                        <h2 data-i18n="header_fft">FFTバンドパスフィルタ</h2>
                     </div>
                     <div class="card-content">
                         <div class="radio-group mb-4">
                             <label class="radio-label">
                                 <input type="radio" name="fft-enable" value="enabled">
                                 <span class="custom-radio"></span>
-                                <span>あり (Enabled)</span>
+                                <span data-i18n="opt_enabled">あり (Enabled)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="fft-enable" value="disabled" checked>
                                 <span class="custom-radio"></span>
-                                <span>なし (None)</span>
+                                <span data-i18n="opt_disabled">なし (None)</span>
                             </label>
                         </div>
                         <div class="input-group mb-3" id="fft-highpass-group">
-                            <label for="input-fft-highpass">ハイパスフィルタ制限 (Low Cutoff px)</label>
+                            <label for="input-fft-highpass" data-i18n="label_fft_highpass">ハイパスフィルタ制限 (Low Cutoff px)</label>
                             <input type="number" id="input-fft-highpass" value="5" min="0" step="1">
                         </div>
                         <div class="input-group" id="fft-lowpass-group">
-                            <label for="input-fft-lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
+                            <label for="input-fft-lowpass" data-i18n="label_fft_lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
                             <input type="number" id="input-fft-lowpass" value="100" min="1" step="1">
                         </div>
                     </div>
+                </div>
 
-                    <!-- SMOOTHING SETTINGS -->
-                    <div class="card-header border-top">
+                <!-- SMOOTHING SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="noise">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">blur_on</span>
-                        <h2 data-i18n="header_noise_condition">平滑処理（メディアン・ガウシアン）</h2>
+                        <h2 data-i18n="header_smoothing_condition">平滑化設定</h2>
                     </div>
                     <div class="card-content">
                         <div class="input-group mb-4">
@@ -507,7 +517,6 @@
                 </div>
 
                 <!-- PAGE 5: BINARIZATION SETTINGS -->
-                <!-- PAGE 5: BINARIZATION SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="binarization">
                     <div class="card-header">
                         <span class="material-icons-round header-icon">visibility</span>
@@ -518,22 +527,22 @@
                             <label class="radio-label">
                                 <input type="radio" name="bin-display-mode" value="original">
                                 <span class="custom-radio"></span>
-                                <span>元画像 (Original)</span>
+                                <span data-i18n="opt_original">元画像 (Original)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="bin-display-mode" value="gray">
                                 <span class="custom-radio"></span>
-                                <span>グレースケール画像 (Grayscale)</span>
+                                <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="bin-display-mode" value="noise">
                                 <span class="custom-radio"></span>
-                                <span>ノイズ除去画像 (Noise Removed)</span>
+                                <span data-i18n="opt_noise_removed">ノイズ除去画像 (Noise Removed)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="bin-display-mode" value="bin" checked>
                                 <span class="custom-radio"></span>
-                                <span>2値化画像 (Binarized)</span>
+                                <span data-i18n="opt_bin">2値化画像 (Binarized)</span>
                             </label>
                         </div>
                         <label class="checkbox-container">
@@ -542,8 +551,10 @@
                             <span data-i18n="chk_bin_boundary">2値化境界（輪郭）を表示する</span>
                         </label>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="binarization">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">contrast</span>
                         <h2 data-i18n="header_binarize_condition">2値化設定</h2>
                     </div>
@@ -613,22 +624,22 @@
                             <label class="radio-label">
                                 <input type="radio" name="limit-display-mode" value="original">
                                 <span class="custom-radio"></span>
-                                <span>元画像 (Original)</span>
+                                <span data-i18n="opt_original">元画像 (Original)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="limit-display-mode" value="gray">
                                 <span class="custom-radio"></span>
-                                <span>グレースケール画像 (Grayscale)</span>
+                                <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="limit-display-mode" value="noise">
                                 <span class="custom-radio"></span>
-                                <span>ノイズ除去画像 (Noise Removed)</span>
+                                <span data-i18n="opt_noise_removed">ノイズ除去画像 (Noise Removed)</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="limit-display-mode" value="bin" checked>
                                 <span class="custom-radio"></span>
-                                <span>2値化画像 (Binarized)</span>
+                                <span data-i18n="opt_bin">2値化画像 (Binarized)</span>
                             </label>
                         </div>
                         <label class="checkbox-container mb-3">
@@ -642,8 +653,10 @@
                             <span data-i18n="chk_limit_numbers">プレビュー上にラベル番号を描画</span>
                         </label>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="limit">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">filter_alt</span>
                         <h2 data-i18n="header_limit_condition">下限面積設定</h2>
                     </div>
@@ -652,7 +665,7 @@
                         <div class="limit-input-block border-bottom pb-4 mb-4">
                             <h3 class="block-title font-semibold text-blue" data-i18n="title_solid_limit">実体の下限面積 (白色部分)</h3>
                             <div class="input-group mb-3">
-                                <label for="input-limit-solid-px">下限画素数 (px)</label>
+                                <label for="input-limit-solid-px" data-i18n="label_limit_px">下限画素数 (px)</label>
                                 <div class="number-input-wrapper">
                                     <input type="number" id="input-limit-solid-px" value="50" min="0" step="1">
                                     <div class="step-controls">
@@ -661,13 +674,25 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="measure-row">
-                                <span class="measure-label" data-i18n="label_limit_area">下限面積:</span>
-                                <span class="measure-value" id="limit-solid-um2">0.000 μm²</span>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-solid-um2" data-i18n="label_limit_area">下限面積 (μm²)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-solid-um2" value="0.000" min="0" step="0.001">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="measure-row">
-                                <span class="measure-label" data-i18n="label_limit_diameter">下限径 (円相当):</span>
-                                <span class="measure-value" id="limit-solid-dia">0.000 μm</span>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-solid-dia" data-i18n="label_limit_diameter">下限円相当径 (μm)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-solid-dia" value="0.000" min="0" step="0.001">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -675,7 +700,7 @@
                         <div class="limit-input-block pb-2">
                             <h3 class="block-title font-semibold text-purple" data-i18n="title_void_limit">空隙の下限面積 (黒色部分)</h3>
                             <div class="input-group mb-3">
-                                <label for="input-limit-void-px">下限画素数 (px)</label>
+                                <label for="input-limit-void-px" data-i18n="label_limit_px">下限画素数 (px)</label>
                                 <div class="number-input-wrapper">
                                     <input type="number" id="input-limit-void-px" value="50" min="0" step="1">
                                     <div class="step-controls">
@@ -684,19 +709,32 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="measure-row">
-                                <span class="measure-label" data-i18n="label_limit_area">下限面積:</span>
-                                <span class="measure-value" id="limit-void-um2">0.000 μm²</span>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-void-um2" data-i18n="label_limit_area">下限面積 (μm²)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-void-um2" value="0.000" min="0" step="0.001">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="measure-row">
-                                <span class="measure-label" data-i18n="label_limit_diameter">下限径 (円相当):</span>
-                                <span class="measure-value" id="limit-void-dia">0.000 μm</span>
+                            <div class="input-group mb-3">
+                                <label for="input-limit-void-dia" data-i18n="label_limit_diameter">下限円相当径 (μm)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-limit-void-dia" value="0.000" min="0" step="0.001">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- RESULTS DATA TABLE -->
-                    <div class="card-header border-top">
+                <div class="sidebar-card glass-panel page-control" data-page="limit">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">table_chart</span>
                         <h2 data-i18n="header_results_list">検出コンポーネント一覧</h2>
                     </div>

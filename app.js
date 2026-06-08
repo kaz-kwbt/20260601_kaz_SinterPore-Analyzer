@@ -29,7 +29,7 @@ const I18n = {
             page_scale_title: "スケール設定",
             page_roi_title: "ROI設定",
             page_grayscale_title: "グレースケール設定",
-            page_noise_title: "ノイズ除去設定",
+            page_noise_title: "平滑化",
             page_binarize_title: "2値化設定",
             page_limit_title: "下限面積設定",
             page_batch_title: "一括処理",
@@ -55,7 +55,7 @@ const I18n = {
             label_um_px: "ピクセルあたりの長さ (μm/px)",
             header_scale_result: "測定結果・計算",
             label_actual_length: "スケールバーの実際の長さ (μm)",
-            scale_instruction: "※ 画像プレビュー上でスケールバーの両端をクリック（またはドラッグ）してピクセル長さを読み取ります。",
+            scale_instruction: "※ 画像プレビュー上でスケールバーの両端をクリックしてピクセル長さを読み取ります。",
             header_roi_display: "表示設定",
             chk_roi_enable: "ROI領域を表示する",
             header_roi_condition: "ROI 範囲設定",
@@ -68,7 +68,7 @@ const I18n = {
             chk_noise_enable: "ノイズ除去をプレビューに反映",
             header_noise_display: "表示設定",
             header_noise_condition: "ノイズ除去設定",
-            label_noise_method: "ノイズ除去手法",
+            label_noise_method: "平滑処理の種類",
             opt_median: "メディアンフィルタ (推奨)",
             opt_gaussian: "ガウシアンフィルタ",
             opt_none: "なし",
@@ -117,7 +117,26 @@ const I18n = {
             label_notes: "一括処理ノート (自由入力)",
             btn_run_batch: "一括処理実行",
             progress_label: "処理中:",
-            header_log: "処理ログ"
+            header_log: "処理ログ",
+            
+            // New keys for v1.4.0
+            header_config_io: "処理条件設定管理",
+            opt_red: "Red (赤色チャネル)",
+            opt_green: "Green (緑色チャネル)",
+            opt_blue: "Blue (青色チャネル)",
+            opt_original: "元画像",
+            opt_gray: "グレースケール画像",
+            opt_fft: "FFTバンドパス画像",
+            opt_smoothed: "平滑処理画像",
+            opt_noise_removed: "ノイズ除去画像",
+            opt_bin: "2値化画像",
+            header_fft: "FFTバンドパスフィルタ",
+            opt_enabled: "あり",
+            opt_disabled: "なし",
+            label_fft_highpass: "ハイパスフィルタ制限 (Low Cutoff px)",
+            label_fft_lowpass: "ローパスフィルタ制限 (High Cutoff px)",
+            header_smoothing_condition: "平滑化設定",
+            label_limit_px: "下限画素数 (px)"
         },
         en: {
             navigation: "Navigation",
@@ -135,7 +154,7 @@ const I18n = {
             page_scale_title: "Scale Settings",
             page_roi_title: "ROI Settings",
             page_grayscale_title: "Grayscale Settings",
-            page_noise_title: "Noise Removal",
+            page_noise_title: "Smoothing",
             page_binarize_title: "Binarization",
             page_limit_title: "Lower Limit Area",
             page_batch_title: "Batch Processing",
@@ -161,7 +180,7 @@ const I18n = {
             label_um_px: "Length per pixel (μm/px)",
             header_scale_result: "Measurement Results",
             label_actual_length: "Actual length of scale bar (μm)",
-            scale_instruction: "※ Click and drag on the image preview to measure pixel length of the scale bar.",
+            scale_instruction: "※ Click on the image preview to measure pixel length of the scale bar.",
             header_roi_display: "Display Settings",
             chk_roi_enable: "Display ROI Box",
             header_roi_condition: "ROI Area Settings",
@@ -174,7 +193,7 @@ const I18n = {
             chk_noise_enable: "Apply noise removal to preview",
             header_noise_display: "Display Settings",
             header_noise_condition: "Noise Removal Settings",
-            label_noise_method: "Filter Method",
+            label_noise_method: "Smoothing Type",
             opt_median: "Median Filter (Recommended)",
             opt_gaussian: "Gaussian Blur",
             opt_none: "None",
@@ -223,7 +242,26 @@ const I18n = {
             label_notes: "Batch Run Notes",
             btn_run_batch: "Run Batch Processing",
             progress_label: "Progress:",
-            header_log: "Process Log"
+            header_log: "Process Log",
+            
+            // New keys for v1.4.0
+            header_config_io: "Settings Management",
+            opt_red: "Red Channel",
+            opt_green: "Green Channel",
+            opt_blue: "Blue Channel",
+            opt_original: "Original",
+            opt_gray: "Grayscale Image",
+            opt_fft: "FFT Bandpass Image",
+            opt_smoothed: "Smoothed Image",
+            opt_noise_removed: "Noise Removed Image",
+            opt_bin: "Binarized Image",
+            header_fft: "FFT Bandpass Filter",
+            opt_enabled: "Enabled",
+            opt_disabled: "Disabled",
+            label_fft_highpass: "Highpass Filter Limit (Low Cutoff px)",
+            label_fft_lowpass: "Lowpass Filter Limit (High Cutoff px)",
+            header_smoothing_condition: "Smoothing Settings",
+            label_limit_px: "Limit Pixels (px)"
         },
         zh: {
             navigation: "导航",
@@ -241,7 +279,7 @@ const I18n = {
             page_scale_title: "比例尺设置",
             page_roi_title: "ROI设置",
             page_grayscale_title: "灰度设置",
-            page_noise_title: "降噪设置",
+            page_noise_title: "平滑化",
             page_binarize_title: "二值化设置",
             page_limit_title: "下限面积设置",
             page_batch_title: "批量处理",
@@ -267,7 +305,7 @@ const I18n = {
             label_um_px: "每像素长度 (μm/px)",
             header_scale_result: "测量结果・计算",
             label_actual_length: "比例尺实际长度 (μm)",
-            scale_instruction: "※ 在图片预览区域点击并拖动，以读取比例尺的像素长度。",
+            scale_instruction: "※ 在图片预览区域点击以读取比例尺的像素长度。",
             header_roi_display: "显示设置",
             chk_roi_enable: "显示ROI区域",
             header_roi_condition: "ROI 范围设置",
@@ -280,7 +318,7 @@ const I18n = {
             chk_noise_enable: "在预览中应用降噪",
             header_noise_display: "显示设置",
             header_noise_condition: "降噪设置",
-            label_noise_method: "降噪算法",
+            label_noise_method: "平滑处理种类",
             opt_median: "中值滤波 (推荐)",
             opt_gaussian: "高斯滤波",
             opt_none: "无",
@@ -329,7 +367,26 @@ const I18n = {
             label_notes: "批量处理备注",
             btn_run_batch: "开始批量处理",
             progress_label: "处理进度:",
-            header_log: "运行日志"
+            header_log: "运行日志",
+            
+            // New keys for v1.4.0
+            header_config_io: "处理条件设置管理",
+            opt_red: "Red (红色通道)",
+            opt_green: "Green (绿色通道)",
+            opt_blue: "Blue (蓝色通道)",
+            opt_original: "原图",
+            opt_gray: "灰度图像",
+            opt_fft: "FFT带通图像",
+            opt_smoothed: "平滑化图像",
+            opt_noise_removed: "降噪处理图像",
+            opt_bin: "二值化图像",
+            header_fft: "FFT带通滤波器",
+            opt_enabled: "开启",
+            opt_disabled: "关闭",
+            label_fft_highpass: "高通滤波器限制 (Low Cutoff px)",
+            label_fft_lowpass: "低通滤波器限制 (High Cutoff px)",
+            header_smoothing_condition: "平滑化设置",
+            label_limit_px: "下限像素数 (px)"
         }
     },
     set(lang) {
@@ -473,6 +530,15 @@ const App = {
         this.updateUIInputs();
         this.updateBatchSummary();
         this.renderHistoryTable();
+    },
+
+    isImageFile(file) {
+        if (!file) return false;
+        if (file.type && file.type.startsWith('image/')) {
+            return true;
+        }
+        const extPattern = /\.(jpe?g|png|gif|bmp|tiff?|webp)$/i;
+        return extPattern.test(file.name);
     },
 
     // --- TRANSLATION ---
@@ -891,18 +957,41 @@ const App = {
 
     updateLimitEquivalentLabels() {
         const scaleSq = this.umPerPx * this.umPerPx;
+        const activeId = document.activeElement ? document.activeElement.id : '';
         
         // Solid equivalent area & diameter
         const solidArea = this.limit.solidPx * scaleSq;
         const solidDia = 2 * Math.sqrt(solidArea / Math.PI);
-        document.getElementById('limit-solid-um2').innerText = `${solidArea.toFixed(3)} μm²`;
-        document.getElementById('limit-solid-dia').innerText = `${solidDia.toFixed(3)} μm`;
+        
+        if (activeId !== 'input-limit-solid-px') {
+            const el = document.getElementById('input-limit-solid-px');
+            if (el) el.value = this.limit.solidPx;
+        }
+        if (activeId !== 'input-limit-solid-um2') {
+            const el = document.getElementById('input-limit-solid-um2');
+            if (el) el.value = solidArea.toFixed(3);
+        }
+        if (activeId !== 'input-limit-solid-dia') {
+            const el = document.getElementById('input-limit-solid-dia');
+            if (el) el.value = solidDia.toFixed(3);
+        }
         
         // Void equivalent area & diameter
         const voidArea = this.limit.voidPx * scaleSq;
         const voidDia = 2 * Math.sqrt(voidArea / Math.PI);
-        document.getElementById('limit-void-um2').innerText = `${voidArea.toFixed(3)} μm²`;
-        document.getElementById('limit-void-dia').innerText = `${voidDia.toFixed(3)} μm`;
+        
+        if (activeId !== 'input-limit-void-px') {
+            const el = document.getElementById('input-limit-void-px');
+            if (el) el.value = this.limit.voidPx;
+        }
+        if (activeId !== 'input-limit-void-um2') {
+            const el = document.getElementById('input-limit-void-um2');
+            if (el) el.value = voidArea.toFixed(3);
+        }
+        if (activeId !== 'input-limit-void-dia') {
+            const el = document.getElementById('input-limit-void-dia');
+            if (el) el.value = voidDia.toFixed(3);
+        }
     },
 
     updateBatchSummary() {
@@ -1320,8 +1409,54 @@ const App = {
                 this.redraw();
             });
         });
+        // solid limit inputs
+        document.getElementById('input-limit-solid-px').addEventListener('input', (e) => {
+            this.limit.solidPx = Math.max(0, parseInt(e.target.value) || 0);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        });
         document.getElementById('input-limit-solid-px').addEventListener('change', (e) => {
             this.limit.solidPx = Math.max(0, parseInt(e.target.value) || 0);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        });
+
+        const onSolidAreaChange = (e) => {
+            const area = Math.max(0, parseFloat(e.target.value) || 0);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.limit.solidPx = Math.round(area / scaleSq);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        document.getElementById('input-limit-solid-um2').addEventListener('input', onSolidAreaChange);
+        document.getElementById('input-limit-solid-um2').addEventListener('change', onSolidAreaChange);
+
+        const onSolidDiaChange = (e) => {
+            const dia = Math.max(0, parseFloat(e.target.value) || 0);
+            const area = Math.PI * (dia / 2) * (dia / 2);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.limit.solidPx = Math.round(area / scaleSq);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        document.getElementById('input-limit-solid-dia').addEventListener('input', onSolidDiaChange);
+        document.getElementById('input-limit-solid-dia').addEventListener('change', onSolidDiaChange);
+
+        // void limit inputs
+        document.getElementById('input-limit-void-px').addEventListener('input', (e) => {
+            this.limit.voidPx = Math.max(0, parseInt(e.target.value) || 0);
             this.updateLimitEquivalentLabels();
             this.updateBatchSummary();
             this.invalidateCCL();
@@ -1336,6 +1471,33 @@ const App = {
             if (this.imageLoaded) this.evaluatePipeline();
             this.saveSettingsToStorage();
         });
+
+        const onVoidAreaChange = (e) => {
+            const area = Math.max(0, parseFloat(e.target.value) || 0);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.limit.voidPx = Math.round(area / scaleSq);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        document.getElementById('input-limit-void-um2').addEventListener('input', onVoidAreaChange);
+        document.getElementById('input-limit-void-um2').addEventListener('change', onVoidAreaChange);
+
+        const onVoidDiaChange = (e) => {
+            const dia = Math.max(0, parseFloat(e.target.value) || 0);
+            const area = Math.PI * (dia / 2) * (dia / 2);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.limit.voidPx = Math.round(area / scaleSq);
+            this.updateLimitEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateCCL();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        document.getElementById('input-limit-void-dia').addEventListener('input', onVoidDiaChange);
+        document.getElementById('input-limit-void-dia').addEventListener('change', onVoidDiaChange);
 
         // Absolute folder path input (if exists)
         const absPathInput = document.getElementById('input-folder-abs-path');
@@ -1404,9 +1566,28 @@ const App = {
         container.addEventListener('wheel', (e) => {
             if (!this.imageLoaded) return;
             e.preventDefault();
+            
+            const rect = container.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            const xInCanvas = mx + container.scrollLeft;
+            const yInCanvas = my + container.scrollTop;
+            
+            const oldScale = this.zoomScale;
             const zoomStep = 0.05;
             const factor = e.deltaY < 0 ? (1 + zoomStep) : (1 - zoomStep);
-            this.setZoom(this.zoomScale * factor);
+            const newScale = Math.max(0.1, Math.min(10.0, this.zoomScale * factor));
+            
+            if (newScale !== oldScale) {
+                this.setZoom(newScale);
+                
+                const imgX = xInCanvas / oldScale;
+                const imgY = yInCanvas / oldScale;
+                
+                container.scrollLeft = imgX * newScale - mx;
+                container.scrollTop = imgY * newScale - my;
+            }
         }, { passive: false });
         
         this.baseCanvas.addEventListener('mousedown', (e) => {
@@ -2203,10 +2384,10 @@ const App = {
         
         // Define color palette (RGBA)
         const colors = {
-            solidNormal: [59, 130, 246, 210],    // Blue
-            solidBelow:  [249, 115, 22, 210],    // Orange
-            voidNormal:  [6, 182, 212, 210],     // Cyan
-            voidBelow:   [239, 68, 68, 210],     // Red
+            solidNormal: [0, 210, 255, 220],    // Neon Cyan
+            solidBelow:  [255, 128, 0, 220],    // Orange
+            voidNormal:  [255, 0, 255, 220],    // Neon Magenta
+            voidBelow:   [255, 230, 0, 220],    // Neon Yellow
             selected:    [255, 255, 255, 0]      // We'll overlay selected separately
         };
         
@@ -2290,7 +2471,13 @@ const App = {
                 ctx.lineWidth = Math.max(2, 2 / this.zoomScale);
                 ctx.strokeText(c.id, lx, ly);
                 
-                ctx.fillStyle = c.type === 'solid' ? '#60a5fa' : '#c084fc';
+                if (c.id === this.selectedCompId) {
+                    ctx.fillStyle = '#ff0000';
+                } else if (c.type === 'solid') {
+                    ctx.fillStyle = c.isBelowLimit ? '#ff8000' : '#00d2ff';
+                } else {
+                    ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#ff00ff';
+                }
                 ctx.fillText(c.id, lx, ly);
             }
             ctx.restore();
@@ -2307,7 +2494,7 @@ const App = {
                 if (entry.isFile) {
                     try {
                         const file = await new Promise((res, rej) => entry.file(res, rej));
-                        if (file.type.startsWith('image/')) {
+                        if (this.isImageFile(file)) {
                             const relPath = entry.fullPath.startsWith('/') ? entry.fullPath.substring(1) : entry.fullPath;
                             Object.defineProperty(file, 'customRelativePath', {
                                 value: relPath,
@@ -2356,7 +2543,7 @@ const App = {
                         traverse(entry);
                     } else {
                         const file = item.getAsFile();
-                        if (file && file.type.startsWith('image/')) {
+                        if (file && this.isImageFile(file)) {
                             files.push(file);
                         }
                     }
@@ -2500,7 +2687,7 @@ const App = {
         let addedCount = 0;
         for (const file of filesList) {
             // Filter image types
-            if (file.type.startsWith('image/')) {
+            if (this.isImageFile(file)) {
                 // Avoid duplicates in list
                 const isDup = this.batchFiles.some(f => f.name === file.name && f.size === file.size);
                 if (!isDup) {
@@ -2868,10 +3055,10 @@ const App = {
             
             // Color codes (RGBA)
             const colors = {
-                solidNormal: [59, 130, 246, 210],    // Blue
-                solidBelow:  [249, 115, 22, 210],    // Orange
-                voidNormal:  [6, 182, 212, 210],     // Cyan
-                voidBelow:   [239, 68, 68, 210]      // Red
+                solidNormal: [0, 210, 255, 220],    // Neon Cyan
+                solidBelow:  [255, 128, 0, 220],    // Orange
+                voidNormal:  [255, 0, 255, 220],    // Neon Magenta
+                voidBelow:   [255, 230, 0, 220]     // Neon Yellow
             };
             
             for (const c of components) {
@@ -2910,7 +3097,13 @@ const App = {
                     ctx.lineWidth = 2;
                     ctx.strokeText(c.id, lx, ly);
                     
-                    ctx.fillStyle = c.type === 'solid' ? '#60a5fa' : '#c084fc';
+                    if (c.id === this.selectedCompId) {
+                        ctx.fillStyle = '#ff0000';
+                    } else if (c.type === 'solid') {
+                        ctx.fillStyle = c.isBelowLimit ? '#ff8000' : '#00d2ff';
+                    } else {
+                        ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#ff00ff';
+                    }
                     ctx.fillText(c.id, lx, ly);
                 }
             }
