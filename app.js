@@ -2408,15 +2408,34 @@ const App = {
             const boundary = c.boundary;
             const len = boundary.length;
             
-            for (let i = 0; i < len; i += 2) {
-                const bx = boundary[i];
-                const by = boundary[i + 1];
-                const idx = (by * W_ROI + bx) * 4;
-                
-                data[idx] = r;
-                data[idx + 1] = g;
-                data[idx + 2] = b;
-                data[idx + 3] = a;
+            if (c.isBelowLimit) {
+                for (let i = 0; i < len; i += 2) {
+                    const bx = boundary[i];
+                    const by = boundary[i + 1];
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            const qx = bx + dx;
+                            const qy = by + dy;
+                            if (qx >= 0 && qx < W_ROI && qy >= 0 && qy < H_ROI) {
+                                const idx = (qy * W_ROI + qx) * 4;
+                                data[idx] = r;
+                                data[idx + 1] = g;
+                                data[idx + 2] = b;
+                                data[idx + 3] = a;
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (let i = 0; i < len; i += 2) {
+                    const bx = boundary[i];
+                    const by = boundary[i + 1];
+                    const idx = (by * W_ROI + bx) * 4;
+                    data[idx] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                    data[idx + 3] = a;
+                }
             }
         }
         
@@ -2603,15 +2622,15 @@ const App = {
                 e.stopPropagation();
                 configDropZone.classList.remove('drag-over');
             });
-            configDropZone.addEventListener('drop', (e) => {
+            configDropZone.addEventListener('drop', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 configDropZone.classList.remove('drag-over');
                 
                 const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    const file = files[0];
-                    if (file.name.endsWith('.json')) {
+                if (files && files.length > 0) {
+                    if (files.length === 1 && files[0].name.endsWith('.json')) {
+                        const file = files[0];
                         const reader = new FileReader();
                         reader.onload = (event) => {
                             try {
@@ -2623,6 +2642,16 @@ const App = {
                             }
                         };
                         reader.readAsText(file);
+                    } else {
+                        const items = e.dataTransfer.items;
+                        if (items && items.length > 0) {
+                            const entriesFiles = await this.traverseFileEntries(items);
+                            if (entriesFiles.length > 0) {
+                                this.addFilesToList(entriesFiles);
+                                return;
+                            }
+                        }
+                        this.addFilesToList(files);
                     }
                 }
             });
@@ -3065,14 +3094,34 @@ const App = {
                 const r = color[0], g = color[1], b = color[2], a = color[3];
                 const boundary = c.boundary;
                 const len = boundary.length;
-                for (let j = 0; j < len; j += 2) {
-                    const bx = boundary[j];
-                    const by = boundary[j + 1];
-                    const idx = (by * W_ROI + bx) * 4;
-                    data[idx] = r;
-                    data[idx+1] = g;
-                    data[idx+2] = b;
-                    data[idx+3] = a;
+                if (c.isBelowLimit) {
+                    for (let j = 0; j < len; j += 2) {
+                        const bx = boundary[j];
+                        const by = boundary[j + 1];
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                const qx = bx + dx;
+                                const qy = by + dy;
+                                if (qx >= 0 && qx < W_ROI && qy >= 0 && qy < H_ROI) {
+                                    const idx = (qy * W_ROI + qx) * 4;
+                                    data[idx] = r;
+                                    data[idx+1] = g;
+                                    data[idx+2] = b;
+                                    data[idx+3] = a;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    for (let j = 0; j < len; j += 2) {
+                        const bx = boundary[j];
+                        const by = boundary[j + 1];
+                        const idx = (by * W_ROI + bx) * 4;
+                        data[idx] = r;
+                        data[idx+1] = g;
+                        data[idx+2] = b;
+                        data[idx+3] = a;
+                    }
                 }
             }
             bCtx.putImageData(imgData, 0, 0);

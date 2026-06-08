@@ -21,7 +21,8 @@ const FileSystemHelper = {
         }
         try {
             const handle = await window.showDirectoryPicker({
-                mode: 'readwrite'
+                mode: 'readwrite',
+                startIn: 'downloads'
             });
             this.activeDirectoryHandle = handle;
             return handle.name;
@@ -261,6 +262,7 @@ const FileSystemHelper = {
         try {
             const handle = await window.showSaveFilePicker({
                 suggestedName: `${config.name || 'settings'}_conditions.json`,
+                startIn: 'downloads',
                 types: [{
                     description: 'JSON Files',
                     accept: { 'application/json': ['.json'] }

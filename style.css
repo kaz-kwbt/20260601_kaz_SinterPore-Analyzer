@@ -804,6 +804,7 @@ input[type="number"]:focus, select:focus, textarea:focus {
 .table-container {
     width: 100%;
     overflow-x: auto;
+    overflow-y: auto;
     border-bottom: 1px solid var(--border-color);
 }
 
