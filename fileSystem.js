@@ -256,7 +256,7 @@ const FileSystemHelper = {
     async saveSettingsAsFile(config) {
         if (!window.showSaveFilePicker) {
             this.downloadJSON(`${config.name || 'settings'}_conditions.json`, config);
-            return;
+            return 'downloaded';
         }
         try {
             const handle = await window.showSaveFilePicker({
@@ -272,6 +272,10 @@ const FileSystemHelper = {
             return handle.name;
         } catch (e) {
             console.warn('Save file picker cancelled or failed:', e);
+            if (e.name !== 'AbortError') {
+                this.downloadJSON(`${config.name || 'settings'}_conditions.json`, config);
+                return 'downloaded';
+            }
             return null;
         }
     },

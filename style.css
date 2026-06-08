@@ -819,7 +819,7 @@ input[type="number"]:focus, select:focus, textarea:focus {
 }
 
 .data-table th {
-    background: rgba(0, 0, 0, 0.15);
+    background: #181f32;
     color: var(--text-muted);
     font-weight: 600;
     padding: 10px 12px;

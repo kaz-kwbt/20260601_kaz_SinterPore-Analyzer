@@ -427,7 +427,7 @@ const App = {
     // FFT parameters
     fft: {
         enabled: false,
-        highPassLimit: 5,
+        highPassLimit: 0,
         lowPassLimit: 100
     },
     
@@ -849,8 +849,8 @@ const App = {
         }
         if (config.fft) {
             this.fft.enabled = !!config.fft.enabled;
-            this.fft.highPassLimit = config.fft.highPassLimit || 5;
-            this.fft.lowPassLimit = config.fft.lowPassLimit || 100;
+            this.fft.highPassLimit = config.fft.highPassLimit !== undefined ? config.fft.highPassLimit : 0;
+            this.fft.lowPassLimit = config.fft.lowPassLimit !== undefined ? config.fft.lowPassLimit : 100;
         }
         if (config.noise) {
             this.noise.enabled = config.noise.enabled;
@@ -1119,13 +1119,10 @@ const App = {
             }
         });
         document.getElementById('btn-save-config').addEventListener('click', async () => {
-            const name = prompt(I18n.currentLang === 'ja' ? '保存する設定の別名を入力してください：' : 'Enter name for settings backup:', 'custom_settings');
-            if (name) {
-                const config = this.generateJSONConfigObject(name);
-                const savedName = await FileSystemHelper.saveSettingsAsFile(config);
-                if (savedName) {
-                    this.logMessage(`Saved configuration as: ${savedName}`);
-                }
+            const config = this.generateJSONConfigObject("sinterpore_settings");
+            const savedName = await FileSystemHelper.saveSettingsAsFile(config);
+            if (savedName) {
+                this.logMessage(`Saved configuration as: ${savedName}`);
             }
         });
         
@@ -1300,7 +1297,7 @@ const App = {
                 this.fft.enabled = e.target.value === 'enabled';
                 this.updateBatchSummary();
                 this.invalidateFFT();
-                if (this.imageLoaded) this.evaluatePipeline();
+                if (this.imageLoaded) this.debouncedEvaluatePipeline();
                 this.saveSettingsToStorage();
             });
         });
@@ -1308,14 +1305,14 @@ const App = {
             this.fft.highPassLimit = Math.max(0, parseInt(e.target.value) || 0);
             this.updateBatchSummary();
             this.invalidateFFT();
-            if (this.imageLoaded) this.evaluatePipeline();
+            if (this.imageLoaded) this.debouncedEvaluatePipeline();
             this.saveSettingsToStorage();
         });
         document.getElementById('input-fft-lowpass').addEventListener('change', (e) => {
             this.fft.lowPassLimit = Math.max(1, parseInt(e.target.value) || 1);
             this.updateBatchSummary();
             this.invalidateFFT();
-            if (this.imageLoaded) this.evaluatePipeline();
+            if (this.imageLoaded) this.debouncedEvaluatePipeline();
             this.saveSettingsToStorage();
         });
         
@@ -1575,7 +1572,7 @@ const App = {
             const yInCanvas = my + container.scrollTop;
             
             const oldScale = this.zoomScale;
-            const zoomStep = 0.05;
+            const zoomStep = 0.15;
             const factor = e.deltaY < 0 ? (1 + zoomStep) : (1 - zoomStep);
             const newScale = Math.max(0.1, Math.min(10.0, this.zoomScale * factor));
             
@@ -2384,11 +2381,11 @@ const App = {
         
         // Define color palette (RGBA)
         const colors = {
-            solidNormal: [0, 210, 255, 220],    // Neon Cyan
-            solidBelow:  [255, 128, 0, 220],    // Orange
-            voidNormal:  [255, 0, 255, 220],    // Neon Magenta
+            solidNormal: [0, 255, 0, 220],      // Neon Green
+            solidBelow:  [255, 230, 0, 220],    // Neon Yellow
+            voidNormal:  [0, 255, 0, 220],      // Neon Green
             voidBelow:   [255, 230, 0, 220],    // Neon Yellow
-            selected:    [255, 255, 255, 0]      // We'll overlay selected separately
+            selected:    [255, 255, 255, 0]
         };
         
         let selectedComp = null;
@@ -2473,10 +2470,8 @@ const App = {
                 
                 if (c.id === this.selectedCompId) {
                     ctx.fillStyle = '#ff0000';
-                } else if (c.type === 'solid') {
-                    ctx.fillStyle = c.isBelowLimit ? '#ff8000' : '#00d2ff';
                 } else {
-                    ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#ff00ff';
+                    ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#00ff00';
                 }
                 ctx.fillText(c.id, lx, ly);
             }
@@ -2490,7 +2485,6 @@ const App = {
             let pending = 0;
             
             const traverse = async (entry) => {
-                pending++;
                 if (entry.isFile) {
                     try {
                         const file = await new Promise((res, rej) => entry.file(res, rej));
@@ -2524,6 +2518,7 @@ const App = {
                             readAll();
                         });
                         for (const child of entries) {
+                            pending++;
                             await traverse(child);
                         }
                     } catch (e) {
@@ -2540,6 +2535,7 @@ const App = {
                 if (item.kind === 'file') {
                     const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
                     if (entry) {
+                        pending++;
                         traverse(entry);
                     } else {
                         const file = item.getAsFile();
@@ -3055,9 +3051,9 @@ const App = {
             
             // Color codes (RGBA)
             const colors = {
-                solidNormal: [0, 210, 255, 220],    // Neon Cyan
-                solidBelow:  [255, 128, 0, 220],    // Orange
-                voidNormal:  [255, 0, 255, 220],    // Neon Magenta
+                solidNormal: [0, 255, 0, 220],      // Neon Green
+                solidBelow:  [255, 230, 0, 220],    // Neon Yellow
+                voidNormal:  [0, 255, 0, 220],      // Neon Green
                 voidBelow:   [255, 230, 0, 220]     // Neon Yellow
             };
             
@@ -3099,10 +3095,8 @@ const App = {
                     
                     if (c.id === this.selectedCompId) {
                         ctx.fillStyle = '#ff0000';
-                    } else if (c.type === 'solid') {
-                        ctx.fillStyle = c.isBelowLimit ? '#ff8000' : '#00d2ff';
                     } else {
-                        ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#ff00ff';
+                        ctx.fillStyle = c.isBelowLimit ? '#ffe600' : '#00ff00';
                     }
                     ctx.fillText(c.id, lx, ly);
                 }

@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.4.0</span>
+                <span class="app-version">v1.5.0</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -125,7 +125,7 @@
                     </div>
                     <div class="card-content">
                         <!-- Shared File List Table -->
-                        <div class="table-container batch-table-container mb-3" style="max-height: 150px;">
+                        <div class="table-container batch-table-container mb-3" style="max-height: 280px;">
                             <table class="data-table" id="batch-file-table">
                                 <thead>
                                     <tr>
@@ -454,7 +454,7 @@
                         </div>
                         <div class="input-group mb-3" id="fft-highpass-group">
                             <label for="input-fft-highpass" data-i18n="label_fft_highpass">ハイパスフィルタ制限 (Low Cutoff px)</label>
-                            <input type="number" id="input-fft-highpass" value="5" min="0" step="1">
+                            <input type="number" id="input-fft-highpass" value="0" min="0" step="1">
                         </div>
                         <div class="input-group" id="fft-lowpass-group">
                             <label for="input-fft-lowpass" data-i18n="label_fft_lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
