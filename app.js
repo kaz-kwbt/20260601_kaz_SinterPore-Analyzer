@@ -2966,9 +2966,11 @@ const App = {
 
     addFilesToList(filesList) {
         let addedCount = 0;
+        let lastImageFile = null;
         for (const file of filesList) {
             // Filter image types
             if (this.isImageFile(file)) {
+                lastImageFile = file;
                 // Avoid duplicates in list
                 const isDup = this.batchFiles.some(f => f.name === file.name && f.size === file.size);
                 if (!isDup) {
@@ -2981,6 +2983,9 @@ const App = {
             this.logMessage(`Added ${addedCount} images to batch list.`);
             this.renderBatchFilesTable();
             this.updateBatchRunButtonState();
+        }
+        if (lastImageFile) {
+            this.loadImage(lastImageFile);
         }
     },
 
