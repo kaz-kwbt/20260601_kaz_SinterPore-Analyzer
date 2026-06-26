@@ -418,7 +418,7 @@ body {
 }
 
 .sidebar-card {
-    overflow: hidden;
+    overflow: visible;
 }
 
 .card-header {
@@ -814,7 +814,8 @@ input[type="number"]:focus, select:focus, textarea:focus {
 
 .data-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 12px;
     text-align: left;
 }

@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.5.1</span>
+                <span class="app-version">v1.5.2</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -245,7 +245,7 @@
                         <div class="input-group">
                             <label for="input-um-px" data-i18n="label_um_px">ピクセルあたりの長さ (μm/px)</label>
                             <div class="number-input-wrapper">
-                                <input type="number" id="input-um-px" value="1.000" min="0.001" step="0.001">
+                                <input type="number" id="input-um-px" value="0.025" min="0.001" step="0.001">
                                 <div class="step-controls">
                                     <button class="step-up"><span class="material-icons-round">expand_less</span></button>
                                     <button class="step-down"><span class="material-icons-round">expand_more</span></button>
@@ -327,11 +327,11 @@
                             </div>
                             <div class="input-group">
                                 <label for="input-roi-x2" data-i18n="label_roi_x2">右下 X (px)</label>
-                                <input type="number" id="input-roi-x2" value="100" min="1" step="1">
+                                <input type="number" id="input-roi-x2" value="2560" min="1" step="1">
                             </div>
                             <div class="input-group">
                                 <label for="input-roi-y2" data-i18n="label_roi_y2">右下 Y (px)</label>
-                                <input type="number" id="input-roi-y2" value="100" min="1" step="1">
+                                <input type="number" id="input-roi-y2" value="1740" min="1" step="1">
                             </div>
                         </div>
                         <button class="action-btn w-100 mt-4" id="btn-roi-full">
@@ -429,7 +429,7 @@
                             <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="smooth" checked>
                                 <span class="custom-radio"></span>
-                                <span data-i18n="opt_smoothed">平滑処理画像 (Smoothed)</span>
+                                <span data-i18n="opt_smoothed">FFTバンドパス&平滑化画像</span>
                             </label>
                         </div>
                     </div>
@@ -460,7 +460,7 @@
                         </div>
                         <div class="input-group" id="fft-lowpass-group">
                             <label for="input-fft-lowpass" data-i18n="label_fft_lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
-                            <input type="number" id="input-fft-lowpass" value="100" min="1" step="1">
+                            <input type="number" id="input-fft-lowpass" value="300" min="1" step="1">
                         </div>
                     </div>
                 </div>
@@ -476,7 +476,7 @@
                             <label data-i18n="label_noise_method">平滑処理の種類</label>
                             <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
                                 <label class="radio-label">
-                                    <input type="radio" name="noise-method-choice" value="median" checked>
+                                    <input type="radio" name="noise-method-choice" value="median">
                                     <span class="custom-radio"></span>
                                     <span data-i18n="opt_median">メディアンフィルタ (推奨)</span>
                                 </label>
@@ -486,7 +486,7 @@
                                     <span data-i18n="opt_gaussian">ガウシアンフィルタ</span>
                                 </label>
                                 <label class="radio-label">
-                                    <input type="radio" name="noise-method-choice" value="none">
+                                    <input type="radio" name="noise-method-choice" value="none" checked>
                                     <span class="custom-radio"></span>
                                     <span data-i18n="opt_none">なし</span>
                                 </label>
@@ -669,7 +669,7 @@
                             <div class="input-group mb-3">
                                 <label for="input-limit-solid-px" data-i18n="label_limit_px">下限画素数 (px)</label>
                                 <div class="number-input-wrapper">
-                                    <input type="number" id="input-limit-solid-px" value="50" min="0" step="1">
+                                    <input type="number" id="input-limit-solid-px" value="113" min="0" step="1">
                                     <div class="step-controls">
                                         <button class="step-up"><span class="material-icons-round">expand_less</span></button>
                                         <button class="step-down"><span class="material-icons-round">expand_more</span></button>
@@ -704,7 +704,7 @@
                             <div class="input-group mb-3">
                                 <label for="input-limit-void-px" data-i18n="label_limit_px">下限画素数 (px)</label>
                                 <div class="number-input-wrapper">
-                                    <input type="number" id="input-limit-void-px" value="50" min="0" step="1">
+                                    <input type="number" id="input-limit-void-px" value="113" min="0" step="1">
                                     <div class="step-controls">
                                         <button class="step-up"><span class="material-icons-round">expand_less</span></button>
                                         <button class="step-down"><span class="material-icons-round">expand_more</span></button>

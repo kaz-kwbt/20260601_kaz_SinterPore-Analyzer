@@ -91,8 +91,8 @@ const I18n = {
             header_limit_condition: "下限面積設定",
             title_solid_limit: "実体の下限面積 (白色部分)",
             title_void_limit: "空隙の下限面積 (黒色部分)",
-            label_limit_area: "下限面積:",
-            label_limit_diameter: "下限径 (円相当):",
+            label_limit_area: "下限面積 (μm²)",
+            label_limit_diameter: "下限径 (円相当径 μm)",
             header_results_list: "検出コンポーネント一覧",
             th_type: "種類",
             th_limit: "判定",
@@ -127,7 +127,7 @@ const I18n = {
             opt_original: "元画像",
             opt_gray: "グレースケール画像",
             opt_fft: "FFTバンドパス画像",
-            opt_smoothed: "平滑処理画像",
+            opt_smoothed: "FFTバンドパス&平滑化画像",
             opt_noise_removed: "ノイズ除去画像",
             opt_bin: "2値化画像",
             header_fft: "FFTバンドパスフィルタ",
@@ -216,8 +216,8 @@ const I18n = {
             header_limit_condition: "Lower Limit Area Settings",
             title_solid_limit: "Solid Lower Limit Area (White)",
             title_void_limit: "Void Lower Limit Area (Black)",
-            label_limit_area: "Limit Area:",
-            label_limit_diameter: "Limit Dia (EqCircle):",
+            label_limit_area: "Lower Limit Area (μm²)",
+            label_limit_diameter: "Lower Limit Diameter (Equivalent Circle μm)",
             header_results_list: "Detected Components List",
             th_type: "Type",
             th_limit: "Limit",
@@ -252,7 +252,7 @@ const I18n = {
             opt_original: "Original",
             opt_gray: "Grayscale Image",
             opt_fft: "FFT Bandpass Image",
-            opt_smoothed: "Smoothed Image",
+            opt_smoothed: "FFT Bandpass & Smoothed Image",
             opt_noise_removed: "Noise Removed Image",
             opt_bin: "Binarized Image",
             header_fft: "FFT Bandpass Filter",
@@ -341,8 +341,8 @@ const I18n = {
             header_limit_condition: "下限面积设置",
             title_solid_limit: "实体下限面积 (白色部分)",
             title_void_limit: "空隙下限面积 (黑色部分)",
-            label_limit_area: "下限面积:",
-            label_limit_diameter: "下限等效圆直径:",
+            label_limit_area: "下限面积 (μm²)",
+            label_limit_diameter: "下限等效圆直径 (μm)",
             header_results_list: "检测到的区域列表",
             th_type: "类型",
             th_limit: "判定",
@@ -377,7 +377,7 @@ const I18n = {
             opt_original: "原图",
             opt_gray: "灰度图像",
             opt_fft: "FFT带通图像",
-            opt_smoothed: "平滑化图像",
+            opt_smoothed: "FFT带通与平滑图像",
             opt_noise_removed: "降噪处理图像",
             opt_bin: "二值化图像",
             header_fft: "FFT带通滤波器",
@@ -412,7 +412,7 @@ const App = {
     activePage: 'general',
     
     // Core parameters
-    umPerPx: 1.0,
+    umPerPx: 0.025,
     actualLength: 10.0,
     
     // ROI coordinates (relative to full image space)
@@ -420,21 +420,21 @@ const App = {
         enabled: true,
         x1: 0,
         y1: 0,
-        x2: 100,
-        y2: 100
+        x2: 2560,
+        y2: 1740
     },
     
     // FFT parameters
     fft: {
         enabled: false,
         highPassLimit: 0,
-        lowPassLimit: 100
+        lowPassLimit: 300
     },
     
     // Preprocessing parameters
     noise: {
         enabled: true,
-        method: 'median',
+        method: 'none',
         kernelSize: 5
     },
     
@@ -449,8 +449,8 @@ const App = {
     
     // Component size filters (px)
     limit: {
-        solidPx: 50,
-        voidPx: 50
+        solidPx: 113,
+        voidPx: 113
     },
     
     // Loaded image information
@@ -508,6 +508,8 @@ const App = {
     // Results table sort states
     sortColumn: 'id',
     sortDirection: 'asc',
+    secondarySortColumn: null,
+    secondarySortDirection: null,
     activeHistoryIndex: null,
     
     // --- INIT ---
@@ -1154,6 +1156,8 @@ const App = {
                 if (this.sortColumn === col) {
                     this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
                 } else {
+                    this.secondarySortColumn = this.sortColumn;
+                    this.secondarySortDirection = this.sortDirection;
                     this.sortColumn = col;
                     this.sortDirection = 'asc';
                 }
@@ -2063,6 +2067,7 @@ const App = {
 
 
     renderResultsTable() {
+        this.updateSortHeadersUI();
         const tbody = document.querySelector('#results-table tbody');
         tbody.innerHTML = '';
         
@@ -2073,26 +2078,27 @@ const App = {
         
         // Sort components dynamically based on state
         const sorted = [...this.components].sort((a, b) => {
-            let valA, valB;
-            if (this.sortColumn === 'id') {
-                valA = a.id;
-                valB = b.id;
-            } else if (this.sortColumn === 'type') {
-                valA = a.type;
-                valB = b.type;
-            } else if (this.sortColumn === 'limit') {
-                valA = a.isBelowLimit ? 1 : 0;
-                valB = b.isBelowLimit ? 1 : 0;
-            } else if (this.sortColumn === 'area') {
-                valA = a.area;
-                valB = b.area;
-            } else if (this.sortColumn === 'dia') {
-                valA = a.diameter;
-                valB = b.diameter;
-            }
+            const getVal = (item, col) => {
+                if (col === 'id') return item.id;
+                if (col === 'type') return item.type;
+                if (col === 'limit') return item.isBelowLimit ? 1 : 0;
+                if (col === 'area') return item.area;
+                if (col === 'dia') return item.diameter;
+                return 0;
+            };
+
+            const valA1 = getVal(a, this.sortColumn);
+            const valB1 = getVal(b, this.sortColumn);
             
-            if (valA < valB) return this.sortDirection === 'asc' ? -1 : 1;
-            if (valA > valB) return this.sortDirection === 'asc' ? 1 : -1;
+            if (valA1 < valB1) return this.sortDirection === 'asc' ? -1 : 1;
+            if (valA1 > valB1) return this.sortDirection === 'asc' ? 1 : -1;
+            
+            if (this.secondarySortColumn && this.secondarySortColumn !== this.sortColumn) {
+                const valA2 = getVal(a, this.secondarySortColumn);
+                const valB2 = getVal(b, this.secondarySortColumn);
+                if (valA2 < valB2) return this.secondarySortDirection === 'asc' ? -1 : 1;
+                if (valA2 > valB2) return this.secondarySortDirection === 'asc' ? 1 : -1;
+            }
             return 0;
         });
         
