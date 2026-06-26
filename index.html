@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.5.2</span>
+                <span class="app-version">v1.6.0</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -70,6 +70,10 @@
                 <a href="#" class="nav-item" data-page="binarization">
                     <span class="material-icons-round">contrast</span>
                     <span class="nav-text" data-i18n="nav_binarize">2値化設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="noiseFilter">
+                    <span class="material-icons-round">filter_center_focus</span>
+                    <span class="nav-text" data-i18n="nav_noise_filter">下限ノイズ除去</span>
                 </a>
                 <a href="#" class="nav-item" data-page="limit">
                     <span class="material-icons-round">view_in_ar</span>
@@ -615,6 +619,126 @@
                     </div>
                 </div>
 
+                <!-- PAGE 5.5: LOWER LIMIT NOISE REMOVAL -->
+                <div class="sidebar-card glass-panel page-control" data-page="noiseFilter">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_noise_filter_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group vertical-radio-group mb-3" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_original">元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="gray">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="noise">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_noise_removed">ノイズ除去画像 (Noise Removed)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="bin">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_bin">2値化画像 (Binarized)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="noiseFilter" checked>
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_noise_filtered">下限ノイズ反転画像</span>
+                            </label>
+                        </div>
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="chk-noise-filter-boundary" checked>
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_bin_boundary">2値化境界（輪郭）を表示する</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sidebar-card glass-panel page-control" data-page="noiseFilter">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">filter_center_focus</span>
+                        <h2 data-i18n="header_noise_filter_condition">下限ノイズ反転設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <!-- White Noise Limit -->
+                        <div class="limit-input-block border-bottom pb-4 mb-4">
+                            <h3 class="block-title font-semibold text-blue" data-i18n="title_white_noise_limit">白色ノイズ下限</h3>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-white-px" data-i18n="label_limit_px">下限画素数 (px)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-white-px" value="113" min="0" step="1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-white-um2" data-i18n="label_limit_area">下限面積 (μm²)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-white-um2" value="0.071" min="0" step="0.01">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-white-dia" data-i18n="label_limit_diameter">下限径 (円相当径 μm)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-white-dia" value="0.300" min="0" step="0.1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Black Noise Limit -->
+                        <div class="limit-input-block pb-2">
+                            <h3 class="block-title font-semibold text-purple" data-i18n="title_black_noise_limit">黒色ノイズ下限</h3>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-black-px" data-i18n="label_limit_px">下限画素数 (px)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-black-px" value="113" min="0" step="1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-black-um2" data-i18n="label_limit_area">下限面積 (μm²)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-black-um2" value="0.071" min="0" step="0.01">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="input-group mb-3">
+                                <label for="input-noise-filter-black-dia" data-i18n="label_limit_diameter">下限径 (円相当径 μm)</label>
+                                <div class="number-input-wrapper">
+                                    <input type="number" id="input-noise-filter-black-dia" value="0.300" min="0" step="0.1">
+                                    <div class="step-controls">
+                                        <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                        <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- PAGE 6: AREA LIMIT SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="limit">
                     <div class="card-header">
@@ -639,9 +763,14 @@
                                 <span data-i18n="opt_noise_removed">ノイズ除去画像 (Noise Removed)</span>
                             </label>
                             <label class="radio-label">
-                                <input type="radio" name="limit-display-mode" value="bin" checked>
+                                <input type="radio" name="limit-display-mode" value="bin">
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_bin">2値化画像 (Binarized)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="noiseFilter" checked>
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_noise_filtered">下限ノイズ反転画像</span>
                             </label>
                         </div>
                         <label class="checkbox-container mb-3">
@@ -819,6 +948,10 @@
                             <div class="summary-item">
                                 <span class="summary-lbl" data-i18n="summary_bin">2値化:</span>
                                 <span class="summary-val" id="summary-bin">Otsu * 100%</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_noise_filter">下限ノイズ:</span>
+                                <span class="summary-val" id="summary-noise-filter">White: 0.300μm / Black: 0.300μm</span>
                             </div>
                             <div class="summary-item">
                                 <span class="summary-lbl" data-i18n="summary_limits">下限サイズ:</span>

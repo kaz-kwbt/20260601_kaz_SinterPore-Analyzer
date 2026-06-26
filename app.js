@@ -136,7 +136,15 @@ const I18n = {
             label_fft_highpass: "ハイパスフィルタ制限 (Low Cutoff px)",
             label_fft_lowpass: "ローパスフィルタ制限 (High Cutoff px)",
             header_smoothing_condition: "平滑化設定",
-            label_limit_px: "下限画素数 (px)"
+            label_limit_px: "下限画素数 (px)",
+            nav_noise_filter: "下限ノイズ除去",
+            page_noiseFilter_title: "下限ノイズ除去",
+            header_noise_filter_display: "表示設定",
+            opt_noise_filtered: "下限ノイズ反転画像",
+            header_noise_filter_condition: "下限ノイズ反転設定",
+            title_white_noise_limit: "白色ノイズ下限",
+            title_black_noise_limit: "黒色ノイズ下限",
+            summary_noise_filter: "下限ノイズ:"
         },
         en: {
             navigation: "Navigation",
@@ -261,7 +269,15 @@ const I18n = {
             label_fft_highpass: "Highpass Filter Limit (Low Cutoff px)",
             label_fft_lowpass: "Lowpass Filter Limit (High Cutoff px)",
             header_smoothing_condition: "Smoothing Settings",
-            label_limit_px: "Limit Pixels (px)"
+            label_limit_px: "Limit Pixels (px)",
+            nav_noise_filter: "Lower Limit Noise Filter",
+            page_noiseFilter_title: "Lower Limit Noise Filter",
+            header_noise_filter_display: "Display Settings",
+            opt_noise_filtered: "Lower Limit Noise Filtered",
+            header_noise_filter_condition: "Lower Limit Noise Filter Settings",
+            title_white_noise_limit: "White Noise Lower Limit",
+            title_black_noise_limit: "Black Noise Lower Limit",
+            summary_noise_filter: "Noise Filter:"
         },
         zh: {
             navigation: "导航",
@@ -386,8 +402,16 @@ const I18n = {
             label_fft_highpass: "高通滤波器限制 (Low Cutoff px)",
             label_fft_lowpass: "低通滤波器限制 (High Cutoff px)",
             header_smoothing_condition: "平滑化设置",
-            label_limit_px: "下限像素数 (px)"
-        }
+            label_limit_px: "下限像素数 (px)",
+            nav_noise_filter: "下限噪声过滤",
+            page_noiseFilter_title: "下限噪声过滤",
+            header_noise_filter_display: "显示设置",
+            opt_noise_filtered: "下限噪声反转图像",
+            header_noise_filter_condition: "下限噪声反转设置",
+            title_white_noise_limit: "白色噪声下限",
+            title_black_noise_limit: "黑色噪声下限",
+            summary_noise_filter: "下限噪声:"
+        },
     },
     set(lang) {
         this.currentLang = lang;
@@ -447,6 +471,12 @@ const App = {
         grayscalePreview: true
     },
     
+    // Binary noise filter limits (px)
+    noiseFilter: {
+        whitePx: 113,
+        blackPx: 113
+    },
+    
     // Component size filters (px)
     limit: {
         solidPx: 113,
@@ -480,6 +510,7 @@ const App = {
     isFFTStageValid: false,
     isNoiseStageValid: false,
     isBinarizationStageValid: false,
+    isNoiseFilterStageValid: false,
     isCCLStageValid: false,
     
     // Caching processed arrays for instant redrawing
@@ -487,6 +518,7 @@ const App = {
     fftArray: null,
     noiseArray: null,
     binArray: null,
+    noiseFilterArray: null,
     
     // Interactive canvas states
     dragMode: null, // 'move' | 'resize'
@@ -559,7 +591,7 @@ const App = {
     },
 
     switchPage(pageName) {
-        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
         if (!pageOrder.includes(pageName)) return;
         this.activePage = pageName;
         
@@ -592,7 +624,7 @@ const App = {
     },
     
     updateHeaderNavButtons() {
-        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
         const idx = pageOrder.indexOf(this.activePage);
         const prevBtn = document.getElementById('btn-prev-page');
         const nextBtn = document.getElementById('btn-next-page');
@@ -614,6 +646,10 @@ const App = {
     },
     invalidateBinarization() {
         this.isBinarizationStageValid = false;
+        this.invalidateNoiseFilter();
+    },
+    invalidateNoiseFilter() {
+        this.isNoiseFilterStageValid = false;
         this.invalidateCCL();
     },
     invalidateCCL() {
@@ -675,11 +711,20 @@ const App = {
         this.isBinarizationStageValid = true;
     },
     
+    runNoiseFilterStage(W, H) {
+        if (this.isNoiseFilterStageValid && this.noiseFilterArray) return;
+        this.noiseFilterArray = ImageProcessor.filterBinaryNoise(
+            this.binArray, W, H,
+            this.noiseFilter.whitePx, this.noiseFilter.blackPx
+        );
+        this.isNoiseFilterStageValid = true;
+    },
+    
     runCCLStage(W, H) {
         if (this.isCCLStageValid && this.components.length > 0) return;
         
-        const solids = ImageProcessor.labelComponents(this.binArray, W, H, 255);
-        const voids = ImageProcessor.labelComponents(this.binArray, W, H, 0);
+        const solids = ImageProcessor.labelComponents(this.noiseFilterArray, W, H, 255);
+        const voids = ImageProcessor.labelComponents(this.noiseFilterArray, W, H, 0);
         
         const scaleSq = this.umPerPx * this.umPerPx;
         this.components = [];
@@ -723,11 +768,12 @@ const App = {
         const rx1 = this.roi.enabled ? this.roi.x1 : 0;
         const ry1 = this.roi.enabled ? this.roi.y1 : 0;
         
-        const needsGrayscale = ['grayscale', 'noise', 'binarization', 'limit'].includes(this.activePage);
-        const needsFFT = ['noise', 'binarization', 'limit'].includes(this.activePage);
-        const needsNoise = ['noise', 'binarization', 'limit'].includes(this.activePage);
-        const needsBinarization = ['binarization', 'limit'].includes(this.activePage);
-        const needsCCL = ['binarization', 'limit'].includes(this.activePage);
+        const needsGrayscale = ['grayscale', 'noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsFFT = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsNoise = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsBinarization = ['binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsNoiseFilter = ['noiseFilter', 'limit'].includes(this.activePage);
+        const needsCCL = ['noiseFilter', 'limit'].includes(this.activePage);
         
         if (needsGrayscale) {
             if (!this.isGrayscaleStageValid || !this.grayArray) {
@@ -752,6 +798,10 @@ const App = {
         
         if (needsBinarization) {
             this.runBinarizationStage();
+        }
+        
+        if (needsNoiseFilter) {
+            this.runNoiseFilterStage(W_ROI, H_ROI);
         }
         
         if (needsCCL) {
@@ -825,6 +875,10 @@ const App = {
                 solidPx: this.limit.solidPx,
                 voidPx: this.limit.voidPx
             },
+            noiseFilter: {
+                whitePx: this.noiseFilter.whitePx,
+                blackPx: this.noiseFilter.blackPx
+            },
             batch: {
                 labelNumbersEnabled: document.getElementById('chk-batch-labels').checked,
                 notes: document.getElementById('input-batch-notes').value,
@@ -869,6 +923,13 @@ const App = {
         if (config.limit) {
             this.limit.solidPx = config.limit.solidPx;
             this.limit.voidPx = config.limit.voidPx;
+        }
+        if (config.noiseFilter) {
+            this.noiseFilter.whitePx = config.noiseFilter.whitePx !== undefined ? config.noiseFilter.whitePx : 113;
+            this.noiseFilter.blackPx = config.noiseFilter.blackPx !== undefined ? config.noiseFilter.blackPx : 113;
+        } else {
+            this.noiseFilter.whitePx = 113;
+            this.noiseFilter.blackPx = 113;
         }
         
         if (config.batch) {
@@ -944,6 +1005,14 @@ const App = {
         document.getElementById('input-limit-solid-px').value = this.limit.solidPx;
         document.getElementById('input-limit-void-px').value = this.limit.voidPx;
         
+        // Noise Filter UI
+        const elWhitePxVal = document.getElementById('input-noise-filter-white-px');
+        if (elWhitePxVal) elWhitePxVal.value = this.noiseFilter.whitePx;
+        const elBlackPxVal = document.getElementById('input-noise-filter-black-px');
+        if (elBlackPxVal) elBlackPxVal.value = this.noiseFilter.blackPx;
+        
+        this.updateNoiseFilterEquivalentLabels();
+        
         // Hide/show threshold groups based on selection
         this.toggleThresholdInputs();
         
@@ -996,6 +1065,45 @@ const App = {
         }
     },
 
+    updateNoiseFilterEquivalentLabels() {
+        const scaleSq = this.umPerPx * this.umPerPx;
+        const activeId = document.activeElement ? document.activeElement.id : '';
+        
+        // White noise equivalent
+        const whiteArea = this.noiseFilter.whitePx * scaleSq;
+        const whiteDia = 2 * Math.sqrt(whiteArea / Math.PI);
+        
+        const elWhitePx = document.getElementById('input-noise-filter-white-px');
+        if (elWhitePx && activeId !== 'input-noise-filter-white-px') {
+            elWhitePx.value = this.noiseFilter.whitePx;
+        }
+        const elWhiteUm2 = document.getElementById('input-noise-filter-white-um2');
+        if (elWhiteUm2 && activeId !== 'input-noise-filter-white-um2') {
+            elWhiteUm2.value = whiteArea.toFixed(3);
+        }
+        const elWhiteDia = document.getElementById('input-noise-filter-white-dia');
+        if (elWhiteDia && activeId !== 'input-noise-filter-white-dia') {
+            elWhiteDia.value = whiteDia.toFixed(3);
+        }
+        
+        // Black noise equivalent
+        const blackArea = this.noiseFilter.blackPx * scaleSq;
+        const blackDia = 2 * Math.sqrt(blackArea / Math.PI);
+        
+        const elBlackPx = document.getElementById('input-noise-filter-black-px');
+        if (elBlackPx && activeId !== 'input-noise-filter-black-px') {
+            elBlackPx.value = this.noiseFilter.blackPx;
+        }
+        const elBlackUm2 = document.getElementById('input-noise-filter-black-um2');
+        if (elBlackUm2 && activeId !== 'input-noise-filter-black-um2') {
+            elBlackUm2.value = blackArea.toFixed(3);
+        }
+        const elBlackDia = document.getElementById('input-noise-filter-black-dia');
+        if (elBlackDia && activeId !== 'input-noise-filter-black-dia') {
+            elBlackDia.value = blackDia.toFixed(3);
+        }
+    },
+
     updateBatchSummary() {
         document.getElementById('summary-um-px').innerText = this.umPerPx.toFixed(3);
         
@@ -1034,6 +1142,16 @@ const App = {
         document.getElementById('summary-bin').innerText = binText;
         
         const scaleSq = this.umPerPx * this.umPerPx;
+        
+        const whiteArea = this.noiseFilter.whitePx * scaleSq;
+        const whiteDia = 2 * Math.sqrt(whiteArea / Math.PI);
+        const blackArea = this.noiseFilter.blackPx * scaleSq;
+        const blackDia = 2 * Math.sqrt(blackArea / Math.PI);
+        const sumNoiseEl = document.getElementById('summary-noise-filter');
+        if (sumNoiseEl) {
+            sumNoiseEl.innerText = `White: ${whiteDia.toFixed(3)}μm / Black: ${blackDia.toFixed(3)}μm`;
+        }
+        
         const solidArea = this.limit.solidPx * scaleSq;
         const solidDia = 2 * Math.sqrt(solidArea / Math.PI);
         const voidArea = this.limit.voidPx * scaleSq;
@@ -1056,7 +1174,7 @@ const App = {
         const prevBtn = document.getElementById('btn-prev-page');
         if (prevBtn) {
             prevBtn.addEventListener('click', () => {
-                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
                 const idx = pageOrder.indexOf(this.activePage);
                 if (idx > 0) this.switchPage(pageOrder[idx - 1]);
             });
@@ -1064,7 +1182,7 @@ const App = {
         const nextBtn = document.getElementById('btn-next-page');
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
-                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'limit', 'batch'];
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
                 const idx = pageOrder.indexOf(this.activePage);
                 if (idx < pageOrder.length - 1) this.switchPage(pageOrder[idx + 1]);
             });
@@ -1197,6 +1315,7 @@ const App = {
         scaleUmPxInput.addEventListener('change', (e) => {
             this.umPerPx = Math.max(0.0001, parseFloat(e.target.value) || 1.0);
             this.updateLimitEquivalentLabels();
+            this.updateNoiseFilterEquivalentLabels();
             this.updateBatchSummary();
             this.invalidateCCL();
             if (this.imageLoaded) this.evaluatePipeline();
@@ -1395,12 +1514,20 @@ const App = {
         // boundary drawing checkboxes sync
         const syncBoundaryChk = (e) => {
             const chk = e.target.checked;
-            document.getElementById('chk-bin-boundary').checked = chk;
-            document.getElementById('chk-limit-boundary').checked = chk;
+            const el1 = document.getElementById('chk-bin-boundary');
+            if (el1) el1.checked = chk;
+            const el2 = document.getElementById('chk-noise-filter-boundary');
+            if (el2) el2.checked = chk;
+            const el3 = document.getElementById('chk-limit-boundary');
+            if (el3) el3.checked = chk;
             this.redraw();
         };
-        document.getElementById('chk-bin-boundary').addEventListener('change', syncBoundaryChk);
-        document.getElementById('chk-limit-boundary').addEventListener('change', syncBoundaryChk);
+        const cel1 = document.getElementById('chk-bin-boundary');
+        if (cel1) cel1.addEventListener('change', syncBoundaryChk);
+        const cel2 = document.getElementById('chk-noise-filter-boundary');
+        if (cel2) cel2.addEventListener('change', syncBoundaryChk);
+        const cel3 = document.getElementById('chk-limit-boundary');
+        if (cel3) cel3.addEventListener('change', syncBoundaryChk);
         
         document.getElementById('chk-limit-numbers').addEventListener('change', () => this.redraw());
         
@@ -1499,6 +1626,109 @@ const App = {
         };
         document.getElementById('input-limit-void-dia').addEventListener('input', onVoidDiaChange);
         document.getElementById('input-limit-void-dia').addEventListener('change', onVoidDiaChange);
+
+        // Noise Filter Display Mode
+        document.querySelectorAll('input[name="noise-filter-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
+
+        // White Noise filter inputs
+        const elWhitePx = document.getElementById('input-noise-filter-white-px');
+        const onWhitePxChange = (e) => {
+            this.noiseFilter.whitePx = Math.max(0, parseInt(e.target.value) || 0);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        if (elWhitePx) {
+            elWhitePx.addEventListener('input', onWhitePxChange);
+            elWhitePx.addEventListener('change', onWhitePxChange);
+        }
+
+        const onWhiteAreaChange = (e) => {
+            const area = Math.max(0, parseFloat(e.target.value) || 0);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.noiseFilter.whitePx = Math.round(area / scaleSq);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        const elWhiteUm2 = document.getElementById('input-noise-filter-white-um2');
+        if (elWhiteUm2) {
+            elWhiteUm2.addEventListener('input', onWhiteAreaChange);
+            elWhiteUm2.addEventListener('change', onWhiteAreaChange);
+        }
+
+        const onWhiteDiaChange = (e) => {
+            const dia = Math.max(0, parseFloat(e.target.value) || 0);
+            const area = Math.PI * (dia / 2) * (dia / 2);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.noiseFilter.whitePx = Math.round(area / scaleSq);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        const elWhiteDia = document.getElementById('input-noise-filter-white-dia');
+        if (elWhiteDia) {
+            elWhiteDia.addEventListener('input', onWhiteDiaChange);
+            elWhiteDia.addEventListener('change', onWhiteDiaChange);
+        }
+
+        // Black Noise filter inputs
+        const elBlackPx = document.getElementById('input-noise-filter-black-px');
+        const onBlackPxChange = (e) => {
+            this.noiseFilter.blackPx = Math.max(0, parseInt(e.target.value) || 0);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        if (elBlackPx) {
+            elBlackPx.addEventListener('input', onBlackPxChange);
+            elBlackPx.addEventListener('change', onBlackPxChange);
+        }
+
+        const onBlackAreaChange = (e) => {
+            const area = Math.max(0, parseFloat(e.target.value) || 0);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.noiseFilter.blackPx = Math.round(area / scaleSq);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        const elBlackUm2 = document.getElementById('input-noise-filter-black-um2');
+        if (elBlackUm2) {
+            elBlackUm2.addEventListener('input', onBlackAreaChange);
+            elBlackUm2.addEventListener('change', onBlackAreaChange);
+        }
+
+        const onBlackDiaChange = (e) => {
+            const dia = Math.max(0, parseFloat(e.target.value) || 0);
+            const area = Math.PI * (dia / 2) * (dia / 2);
+            const scaleSq = this.umPerPx * this.umPerPx;
+            this.noiseFilter.blackPx = Math.round(area / scaleSq);
+            this.updateNoiseFilterEquivalentLabels();
+            this.updateBatchSummary();
+            this.invalidateNoiseFilter();
+            if (this.imageLoaded) this.evaluatePipeline();
+            this.saveSettingsToStorage();
+        };
+        const elBlackDia = document.getElementById('input-noise-filter-black-dia');
+        if (elBlackDia) {
+            elBlackDia.addEventListener('input', onBlackDiaChange);
+            elBlackDia.addEventListener('change', onBlackDiaChange);
+        }
 
         // Absolute folder path input (if exists)
         const absPathInput = document.getElementById('input-folder-abs-path');
@@ -2059,6 +2289,7 @@ const App = {
         this.runFFTStage(W_ROI, H_ROI);
         this.runNoiseStage(W_ROI, H_ROI);
         this.runBinarizationStage();
+        this.runNoiseFilterStage(W_ROI, H_ROI);
         this.runCCLStage(W_ROI, H_ROI);
         
         this.renderResultsTable();
@@ -2222,13 +2453,27 @@ const App = {
                 }
             } else if (this.activePage === 'limit') {
                 const displayModeRadio = document.querySelector('input[name="limit-display-mode"]:checked');
-                const displayMode = displayModeRadio ? displayModeRadio.value : 'bin';
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'noiseFilter';
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
                 } else if (displayMode === 'noise' && this.noiseArray) {
                     this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
                 } else if (displayMode === 'bin' && this.binArray) {
                     this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+                } else if (displayMode === 'noiseFilter' && this.noiseFilterArray) {
+                    this.drawProcessedROI(this.noiseFilterArray, rx1, ry1, w, h);
+                }
+            } else if (this.activePage === 'noiseFilter') {
+                const displayModeRadio = document.querySelector('input[name="noise-filter-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'noiseFilter';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'noise' && this.noiseArray) {
+                    this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
+                } else if (displayMode === 'bin' && this.binArray) {
+                    this.drawProcessedROI(this.binArray, rx1, ry1, w, h);
+                } else if (displayMode === 'noiseFilter' && this.noiseFilterArray) {
+                    this.drawProcessedROI(this.noiseFilterArray, rx1, ry1, w, h);
                 }
             }
         }
@@ -2240,14 +2485,16 @@ const App = {
         
         // 4. Draw ROI rectangle in ROI mode or if enabled
         if (this.roi.enabled && (this.activePage === 'roi' || 
-            ['noise', 'binarization', 'limit'].includes(this.activePage) || 
+            ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage) || 
             this.activePage === 'batch')) {
             this.drawROIRect();
         }
         
         // 5. Draw binary contours and details on analysis pages
-        if (['binarization', 'limit', 'batch'].includes(this.activePage)) {
-            const chkBoundary = document.getElementById('chk-bin-boundary');
+        if (['binarization', 'noiseFilter', 'limit', 'batch'].includes(this.activePage)) {
+            const chkBoundary = this.activePage === 'noiseFilter' 
+                ? document.getElementById('chk-noise-filter-boundary')
+                : document.getElementById('chk-bin-boundary');
             const showBoundaries = chkBoundary ? chkBoundary.checked : true;
             if (showBoundaries && this.components.length > 0) {
                 this.drawBoundaries();
@@ -2855,6 +3102,7 @@ const App = {
         batchLogText += `- fft: enabled=${this.fft.enabled}, highpass=${this.fft.highPassLimit}px, lowpass=${this.fft.lowPassLimit}px\n`;
         batchLogText += `- noise: enabled=${this.noise.enabled}, method=${this.noise.method}, size=${this.noise.kernelSize}\n`;
         batchLogText += `- binarization: channel=${this.binarization.channel}, method=${this.binarization.method}, fixedVal=${this.binarization.fixedValue}, otsu%=${this.binarization.otsuPercent}\n`;
+        batchLogText += `- noiseFilter: white=${this.noiseFilter.whitePx}px, black=${this.noiseFilter.blackPx}px\n`;
         batchLogText += `- limit: solid=${this.limit.solidPx}px, void=${this.limit.voidPx}px\n`;
         batchLogText += `=========================================\n`;
 
@@ -2929,9 +3177,12 @@ const App = {
                 // 6. Binarize
                 const bin = ImageProcessor.binarize(gray, threshVal);
                 
+                // 6.5. Filter Binary Noise
+                const filteredBin = ImageProcessor.filterBinaryNoise(bin, W_ROI, H_ROI, this.noiseFilter.whitePx, this.noiseFilter.blackPx);
+                
                 // 7. Labeling
-                const solids = ImageProcessor.labelComponents(bin, W_ROI, H_ROI, 255);
-                const voids = ImageProcessor.labelComponents(bin, W_ROI, H_ROI, 0);
+                const solids = ImageProcessor.labelComponents(filteredBin, W_ROI, H_ROI, 255);
+                const voids = ImageProcessor.labelComponents(filteredBin, W_ROI, H_ROI, 0);
                 
                 // 8. Stats calculations
                 const roiPx = W_ROI * H_ROI;

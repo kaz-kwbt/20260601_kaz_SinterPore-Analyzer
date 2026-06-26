@@ -202,6 +202,110 @@ const ImageProcessor = {
     },
 
     /**
+     * Filter noise from binary array by inverting components smaller than limits
+     * @param {Uint8Array} binary 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} whiteLimitPx 
+     * @param {number} blackLimitPx 
+     * @returns {Uint8Array}
+     */
+    filterBinaryNoise(binary, W, H, whiteLimitPx, blackLimitPx) {
+        const dst = new Uint8Array(binary);
+        const visited = new Uint8Array(W * H);
+        const queue = new Int32Array(W * H);
+        
+        // 8-neighbor offsets
+        const dx8 = [-1,  0,  1, -1, 1, -1, 0, 1];
+        const dy8 = [-1, -1, -1,  0, 0,  1, 1, 1];
+        
+        // 1. Filter white noise (255 -> 0 if pixels < whiteLimitPx)
+        if (whiteLimitPx > 0) {
+            for (let y = 0; y < H; y++) {
+                const yOffset = y * W;
+                for (let x = 0; x < W; x++) {
+                    const startIdx = yOffset + x;
+                    if (dst[startIdx] === 255 && visited[startIdx] === 0) {
+                        let head = 0;
+                        let tail = 0;
+                        queue[tail++] = startIdx;
+                        visited[startIdx] = 1;
+                        
+                        while (head < tail) {
+                            const currIdx = queue[head++];
+                            const cx = currIdx % W;
+                            const cy = Math.floor(currIdx / W);
+                            
+                            for (let n = 0; n < 8; n++) {
+                                const nx = cx + dx8[n];
+                                const ny = cy + dy8[n];
+                                if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+                                    const nIdx = ny * W + nx;
+                                    if (visited[nIdx] === 0 && dst[nIdx] === 255) {
+                                        visited[nIdx] = 1;
+                                        queue[tail++] = nIdx;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (tail < whiteLimitPx) {
+                            for (let i = 0; i < tail; i++) {
+                                dst[queue[i]] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Reset visited buffer
+        visited.fill(0);
+        
+        // 2. Filter black noise (0 -> 255 if pixels < blackLimitPx)
+        if (blackLimitPx > 0) {
+            for (let y = 0; y < H; y++) {
+                const yOffset = y * W;
+                for (let x = 0; x < W; x++) {
+                    const startIdx = yOffset + x;
+                    if (dst[startIdx] === 0 && visited[startIdx] === 0) {
+                        let head = 0;
+                        let tail = 0;
+                        queue[tail++] = startIdx;
+                        visited[startIdx] = 1;
+                        
+                        while (head < tail) {
+                            const currIdx = queue[head++];
+                            const cx = currIdx % W;
+                            const cy = Math.floor(currIdx / W);
+                            
+                            for (let n = 0; n < 8; n++) {
+                                const nx = cx + dx8[n];
+                                const ny = cy + dy8[n];
+                                if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+                                    const nIdx = ny * W + nx;
+                                    if (visited[nIdx] === 0 && dst[nIdx] === 0) {
+                                        visited[nIdx] = 1;
+                                        queue[tail++] = nIdx;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (tail < blackLimitPx) {
+                            for (let i = 0; i < tail; i++) {
+                                dst[queue[i]] = 255;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return dst;
+    },
+
+    /**
      * Connected Component Labeling using 8-connectivity BFS.
      * Extracts boundaries and geometrical features.
      * @param {Uint8Array} binary 
