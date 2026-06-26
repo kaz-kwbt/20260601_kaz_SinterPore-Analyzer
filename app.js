@@ -479,8 +479,8 @@ const App = {
     
     // Component size filters (px)
     limit: {
-        solidPx: 113,
-        voidPx: 113
+        solidPx: 0,
+        voidPx: 0
     },
     
     // Loaded image information
@@ -921,8 +921,11 @@ const App = {
             this.binarization.grayscalePreview = config.binarization.grayscalePreview !== undefined ? config.binarization.grayscalePreview : true;
         }
         if (config.limit) {
-            this.limit.solidPx = config.limit.solidPx;
-            this.limit.voidPx = config.limit.voidPx;
+            this.limit.solidPx = config.limit.solidPx !== undefined ? config.limit.solidPx : 0;
+            this.limit.voidPx = config.limit.voidPx !== undefined ? config.limit.voidPx : 0;
+        } else {
+            this.limit.solidPx = 0;
+            this.limit.voidPx = 0;
         }
         if (config.noiseFilter) {
             this.noiseFilter.whitePx = config.noiseFilter.whitePx !== undefined ? config.noiseFilter.whitePx : 113;

@@ -899,6 +899,7 @@ input[type="number"]:focus, select:focus, textarea:focus {
 .app-container[data-active-page="grayscale"] .page-control[data-page="grayscale"],
 .app-container[data-active-page="noise"] .page-control[data-page="noise"],
 .app-container[data-active-page="binarization"] .page-control[data-page="binarization"],
+.app-container[data-active-page="noiseFilter"] .page-control[data-page="noiseFilter"],
 .app-container[data-active-page="limit"] .page-control[data-page="limit"],
 .app-container[data-active-page="batch"] .page-control[data-page="batch"] {
     display: block;
