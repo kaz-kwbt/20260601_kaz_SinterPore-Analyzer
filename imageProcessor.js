@@ -411,15 +411,14 @@ const ImageProcessor = {
     },
 
     /**
-     * Apply 2D FFT Bandpass Filter to a grayscale array
+     * Apply 2D FFT Lowpass Filter to a grayscale array
      * @param {Uint8Array} src 
      * @param {number} W 
      * @param {number} H 
-     * @param {number} lowCutoff (High-pass limit: cuts off frequencies below this radius)
      * @param {number} highCutoff (Low-pass limit: cuts off frequencies above this radius)
      * @returns {Uint8Array}
      */
-    fftBandpassFilter(src, W, H, lowCutoff, highCutoff) {
+    fftLowpassFilter(src, W, H, highCutoff) {
         const getNextPowerOf2 = (n) => {
             let p = 1;
             while (p < n) p <<= 1;
@@ -482,7 +481,7 @@ const ImageProcessor = {
             for (let x = 0; x < W_pad; x++) {
                 const u = x < cx ? x : x - W_pad;
                 const dist = Math.sqrt(u * u + v * v);
-                if (dist < lowCutoff || dist > highCutoff) {
+                if (dist > highCutoff) {
                     re[rowOffset + x] = 0;
                     im[rowOffset + x] = 0;
                 }
@@ -581,5 +580,105 @@ const ImageProcessor = {
                 im[i] /= n;
             }
         }
+    },
+
+    /**
+     * Apply sliding-window box blur to a grayscale array (O(N) time complexity)
+     * @param {Uint8Array} src 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} radius 
+     * @returns {Uint8Array}
+     */
+    boxBlur(src, W, H, radius) {
+        if (radius <= 0) return new Uint8Array(src);
+        const temp = new Uint8Array(W * H);
+        const dst = new Uint8Array(W * H);
+        
+        // Horizontal pass
+        for (let y = 0; y < H; y++) {
+            const rowOffset = y * W;
+            let sum = 0;
+            const size = 2 * radius + 1;
+            
+            // Initialize sum for the window
+            for (let x = -radius; x <= radius; x++) {
+                const px = Math.max(0, Math.min(W - 1, x));
+                sum += src[rowOffset + px];
+            }
+            temp[rowOffset] = Math.round(sum / size);
+            
+            for (let x = 1; x < W; x++) {
+                const prevPx = Math.max(0, x - radius - 1);
+                const nextPx = Math.min(W - 1, x + radius);
+                sum = sum - src[rowOffset + prevPx] + src[rowOffset + nextPx];
+                temp[rowOffset + x] = Math.round(sum / size);
+            }
+        }
+        
+        // Vertical pass
+        for (let x = 0; x < W; x++) {
+            let sum = 0;
+            const size = 2 * radius + 1;
+            
+            // Initialize sum for the window
+            for (let y = -radius; y <= radius; y++) {
+                const py = Math.max(0, Math.min(H - 1, y));
+                sum += temp[py * W + x];
+            }
+            dst[x] = Math.round(sum / size);
+            
+            for (let y = 1; y < H; y++) {
+                const prevPy = Math.max(0, y - radius - 1);
+                const nextPy = Math.min(H - 1, y + radius);
+                sum = sum - temp[prevPy * W + x] + temp[nextPy * W + x];
+                dst[y * W + x] = Math.round(sum / size);
+            }
+        }
+        
+        return dst;
+    },
+
+    /**
+     * Apply Shading Correction using Box Blur background division
+     * @param {Uint8Array} gray 
+     * @param {number} W 
+     * @param {number} H 
+     * @param {number} kernelSize 
+     * @param {boolean} enabled 
+     * @returns {{corrected: Uint8Array, blurred: Uint8Array}}
+     */
+    applyShadingCorrection(gray, W, H, kernelSize, enabled) {
+        if (!enabled) {
+            return {
+                corrected: new Uint8Array(gray),
+                blurred: new Uint8Array(W * H)
+            };
+        }
+        
+        const radius = Math.floor(kernelSize / 2);
+        const blurred = this.boxBlur(gray, W, H, radius);
+        const corrected = new Uint8Array(W * H);
+        
+        // Compute mean of original grayscale image to preserve overall brightness
+        let sum = 0;
+        const len = gray.length;
+        for (let i = 0; i < len; i++) {
+            sum += gray[i];
+        }
+        const mean = sum / len;
+        
+        // Correct = (original / blurred) * mean
+        for (let i = 0; i < len; i++) {
+            const b = blurred[i];
+            if (b === 0) {
+                corrected[i] = gray[i];
+            } else {
+                const val = (gray[i] / b) * mean;
+                corrected[i] = Math.max(0, Math.min(255, Math.round(val)));
+            }
+        }
+        
+        return { corrected, blurred };
     }
 };

@@ -126,14 +126,13 @@ const I18n = {
             opt_blue: "Blue (青色チャネル)",
             opt_original: "元画像",
             opt_gray: "グレースケール画像",
-            opt_fft: "FFTバンドパス画像",
-            opt_smoothed: "FFTバンドパス&平滑化画像",
+            opt_fft: "FFTローパス画像",
+            opt_smoothed: "FFTローパス&平滑化画像",
             opt_noise_removed: "ノイズ除去画像",
             opt_bin: "2値化画像",
-            header_fft: "FFTバンドパスフィルタ",
+            header_fft: "FFTローパスフィルタ",
             opt_enabled: "あり",
             opt_disabled: "なし",
-            label_fft_highpass: "ハイパスフィルタ制限 (Low Cutoff px)",
             label_fft_lowpass: "ローパスフィルタ制限 (High Cutoff px)",
             header_smoothing_condition: "平滑化設定",
             label_limit_px: "下限画素数 (px)",
@@ -144,7 +143,16 @@ const I18n = {
             header_noise_filter_condition: "下限ノイズ反転設定",
             title_white_noise_limit: "白色ノイズ下限",
             title_black_noise_limit: "黒色ノイズ下限",
-            summary_noise_filter: "下限ノイズ:"
+            summary_noise_filter: "下限ノイズ:",
+            nav_shading: "シェーディング補正",
+            page_shading_title: "シェーディング補正",
+            header_shading_display: "表示設定",
+            opt_shading_blur: "ぼかし画像 (背景モデル)",
+            opt_shading_corrected: "シェーディング補正画像",
+            header_shading_condition: "シェーディング補正設定",
+            chk_shading_enable: "シェーディング補正を有効にする",
+            label_shading_kernel: "カーネルサイズ (px)",
+            summary_shading: "シェーディング補正:"
         },
         en: {
             navigation: "Navigation",
@@ -259,14 +267,13 @@ const I18n = {
             opt_blue: "Blue Channel",
             opt_original: "Original",
             opt_gray: "Grayscale Image",
-            opt_fft: "FFT Bandpass Image",
-            opt_smoothed: "FFT Bandpass & Smoothed Image",
+            opt_fft: "FFT Lowpass Image",
+            opt_smoothed: "FFT Lowpass & Smoothed Image",
             opt_noise_removed: "Noise Removed Image",
             opt_bin: "Binarized Image",
-            header_fft: "FFT Bandpass Filter",
+            header_fft: "FFT Lowpass Filter",
             opt_enabled: "Enabled",
             opt_disabled: "Disabled",
-            label_fft_highpass: "Highpass Filter Limit (Low Cutoff px)",
             label_fft_lowpass: "Lowpass Filter Limit (High Cutoff px)",
             header_smoothing_condition: "Smoothing Settings",
             label_limit_px: "Limit Pixels (px)",
@@ -277,7 +284,16 @@ const I18n = {
             header_noise_filter_condition: "Lower Limit Noise Filter Settings",
             title_white_noise_limit: "White Noise Lower Limit",
             title_black_noise_limit: "Black Noise Lower Limit",
-            summary_noise_filter: "Noise Filter:"
+            summary_noise_filter: "Noise Filter:",
+            nav_shading: "Shading Correction",
+            page_shading_title: "Shading Correction",
+            header_shading_display: "Display Settings",
+            opt_shading_blur: "Blurred Image (Background)",
+            opt_shading_corrected: "Shading Corrected Image",
+            header_shading_condition: "Shading Correction Settings",
+            chk_shading_enable: "Enable Shading Correction",
+            label_shading_kernel: "Kernel Size (px)",
+            summary_shading: "Shading Correction:"
         },
         zh: {
             navigation: "导航",
@@ -392,14 +408,13 @@ const I18n = {
             opt_blue: "Blue (蓝色通道)",
             opt_original: "原图",
             opt_gray: "灰度图像",
-            opt_fft: "FFT带通图像",
-            opt_smoothed: "FFT带通与平滑图像",
+            opt_fft: "FFT低通图像",
+            opt_smoothed: "FFT低通与平滑图像",
             opt_noise_removed: "降噪处理图像",
             opt_bin: "二值化图像",
-            header_fft: "FFT带通滤波器",
+            header_fft: "FFT低通滤波器",
             opt_enabled: "开启",
             opt_disabled: "关闭",
-            label_fft_highpass: "高通滤波器限制 (Low Cutoff px)",
             label_fft_lowpass: "低通滤波器限制 (High Cutoff px)",
             header_smoothing_condition: "平滑化设置",
             label_limit_px: "下限像素数 (px)",
@@ -410,7 +425,16 @@ const I18n = {
             header_noise_filter_condition: "下限噪声反转设置",
             title_white_noise_limit: "白色噪声下限",
             title_black_noise_limit: "黑色噪声下限",
-            summary_noise_filter: "下限噪声:"
+            summary_noise_filter: "下限噪声:",
+            nav_shading: "阴影校正",
+            page_shading_title: "阴影校正",
+            header_shading_display: "显示设置",
+            opt_shading_blur: "模糊图像 (背景模型)",
+            opt_shading_corrected: "阴影校正后图像",
+            header_shading_condition: "阴影校正设置",
+            chk_shading_enable: "开启阴影校正",
+            label_shading_kernel: "滤波器大小 (px)",
+            summary_shading: "阴影校正:"
         },
     },
     set(lang) {
@@ -451,8 +475,13 @@ const App = {
     // FFT parameters
     fft: {
         enabled: false,
-        highPassLimit: 0,
         lowPassLimit: 300
+    },
+    
+    // Shading correction parameters
+    shading: {
+        enabled: false,
+        kernelSize: 150
     },
     
     // Preprocessing parameters
@@ -507,6 +536,7 @@ const App = {
     
     // Pipeline Cache and Validity Flags
     isGrayscaleStageValid: false,
+    isShadingStageValid: false,
     isFFTStageValid: false,
     isNoiseStageValid: false,
     isBinarizationStageValid: false,
@@ -515,6 +545,8 @@ const App = {
     
     // Caching processed arrays for instant redrawing
     grayArray: null,
+    shadingArray: null,
+    shadingBlurArray: null,
     fftArray: null,
     noiseArray: null,
     binArray: null,
@@ -591,7 +623,7 @@ const App = {
     },
 
     switchPage(pageName) {
-        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'shading', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
         if (!pageOrder.includes(pageName)) return;
         this.activePage = pageName;
         
@@ -624,7 +656,7 @@ const App = {
     },
     
     updateHeaderNavButtons() {
-        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
+        const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'shading', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
         const idx = pageOrder.indexOf(this.activePage);
         const prevBtn = document.getElementById('btn-prev-page');
         const nextBtn = document.getElementById('btn-next-page');
@@ -634,6 +666,10 @@ const App = {
 
     invalidateGrayscale() {
         this.isGrayscaleStageValid = false;
+        this.invalidateShading();
+    },
+    invalidateShading() {
+        this.isShadingStageValid = false;
         this.invalidateFFT();
     },
     invalidateFFT() {
@@ -661,16 +697,27 @@ const App = {
         this.grayArray = ImageProcessor.toGrayscale(roiImageData, this.binarization.channel);
         this.isGrayscaleStageValid = true;
     },
+
+    runShadingCorrectionStage(W, H) {
+        if (this.isShadingStageValid && this.shadingArray) return;
+        const result = ImageProcessor.applyShadingCorrection(
+            this.grayArray, W, H,
+            this.shading.kernelSize, this.shading.enabled
+        );
+        this.shadingArray = result.corrected;
+        this.shadingBlurArray = result.blurred;
+        this.isShadingStageValid = true;
+    },
     
     runFFTStage(W, H) {
         if (this.isFFTStageValid && this.fftArray) return;
         if (this.fft.enabled) {
-            this.fftArray = ImageProcessor.fftBandpassFilter(
-                this.grayArray, W, H, 
-                this.fft.highPassLimit, this.fft.lowPassLimit
+            this.fftArray = ImageProcessor.fftLowpassFilter(
+                this.shadingArray, W, H, 
+                this.fft.lowPassLimit
             );
         } else {
-            this.fftArray = new Uint8Array(this.grayArray);
+            this.fftArray = new Uint8Array(this.shadingArray);
         }
         this.isFFTStageValid = true;
     },
@@ -768,7 +815,8 @@ const App = {
         const rx1 = this.roi.enabled ? this.roi.x1 : 0;
         const ry1 = this.roi.enabled ? this.roi.y1 : 0;
         
-        const needsGrayscale = ['grayscale', 'noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsGrayscale = ['grayscale', 'shading', 'noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsShading = ['shading', 'noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         const needsFFT = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         const needsNoise = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         const needsBinarization = ['binarization', 'noiseFilter', 'limit'].includes(this.activePage);
@@ -786,6 +834,10 @@ const App = {
                 
                 this.runGrayscaleStage(roiImageData);
             }
+        }
+
+        if (needsShading) {
+            this.runShadingCorrectionStage(W_ROI, H_ROI);
         }
         
         if (needsFFT) {
@@ -854,9 +906,12 @@ const App = {
                 x2: this.roi.x2,
                 y2: this.roi.y2
             },
+            shading: {
+                enabled: this.shading.enabled,
+                kernelSize: this.shading.kernelSize
+            },
             fft: {
                 enabled: this.fft.enabled,
-                highPassLimit: this.fft.highPassLimit,
                 lowPassLimit: this.fft.lowPassLimit
             },
             noise: {
@@ -903,9 +958,15 @@ const App = {
             this.roi.x2 = config.roi.x2;
             this.roi.y2 = config.roi.y2;
         }
+        if (config.shading) {
+            this.shading.enabled = !!config.shading.enabled;
+            this.shading.kernelSize = config.shading.kernelSize !== undefined ? config.shading.kernelSize : 150;
+        } else {
+            this.shading.enabled = false;
+            this.shading.kernelSize = 150;
+        }
         if (config.fft) {
             this.fft.enabled = !!config.fft.enabled;
-            this.fft.highPassLimit = config.fft.highPassLimit !== undefined ? config.fft.highPassLimit : 0;
             this.fft.lowPassLimit = config.fft.lowPassLimit !== undefined ? config.fft.lowPassLimit : 100;
         }
         if (config.noise) {
@@ -978,11 +1039,15 @@ const App = {
         document.getElementById('input-roi-x2').value = this.roi.x2;
         document.getElementById('input-roi-y2').value = this.roi.y2;
         
+        // Shading UI
+        const shadingEnableChk = document.getElementById('chk-shading-enable');
+        if (shadingEnableChk) shadingEnableChk.checked = this.shading.enabled;
+        const shadingKernelInput = document.getElementById('input-shading-kernel');
+        if (shadingKernelInput) shadingKernelInput.value = this.shading.kernelSize;
+
         // FFT UI
         const fftRadio = document.querySelector(`input[name="fft-enable"][value="${this.fft.enabled ? 'enabled' : 'disabled'}"]`);
         if (fftRadio) fftRadio.checked = true;
-        const hpEl = document.getElementById('input-fft-highpass');
-        if (hpEl) hpEl.value = this.fft.highPassLimit;
         const lpEl = document.getElementById('input-fft-lowpass');
         if (lpEl) lpEl.value = this.fft.lowPassLimit;
         
@@ -1124,15 +1189,23 @@ const App = {
         if (summaryGray) {
             summaryGray.innerText = grayChannelText;
         }
+
+        const summaryShading = document.getElementById('summary-shading');
+        if (summaryShading) {
+            summaryShading.innerText = this.shading.enabled ? `ON (Kernel: ${this.shading.kernelSize}px)` : 'OFF';
+        }
         
         let noiseText = '';
         if (this.fft.enabled) {
-            noiseText += `FFT (${this.fft.highPassLimit}-${this.fft.lowPassLimit}px) + `;
+            noiseText += `FFT (Lowpass: ${this.fft.lowPassLimit}px) + `;
         }
         if (this.noise.enabled && this.noise.method !== 'none') {
             noiseText += `${this.noise.method === 'median' ? 'Median' : 'Gaussian'} (${this.noise.kernelSize}x${this.noise.kernelSize})`;
         } else {
-            noiseText += this.fft.enabled ? 'None' : 'None';
+            noiseText += this.fft.enabled ? '' : 'None';
+        }
+        if (noiseText === '') {
+            noiseText = 'None';
         }
         if (noiseText.endsWith(' + ')) {
             noiseText = noiseText.substring(0, noiseText.length - 3);
@@ -1177,7 +1250,7 @@ const App = {
         const prevBtn = document.getElementById('btn-prev-page');
         if (prevBtn) {
             prevBtn.addEventListener('click', () => {
-                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'shading', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
                 const idx = pageOrder.indexOf(this.activePage);
                 if (idx > 0) this.switchPage(pageOrder[idx - 1]);
             });
@@ -1185,7 +1258,7 @@ const App = {
         const nextBtn = document.getElementById('btn-next-page');
         if (nextBtn) {
             nextBtn.addEventListener('click', () => {
-                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
+                const pageOrder = ['general', 'scale', 'roi', 'grayscale', 'shading', 'noise', 'binarization', 'noiseFilter', 'limit', 'batch'];
                 const idx = pageOrder.indexOf(this.activePage);
                 if (idx < pageOrder.length - 1) this.switchPage(pageOrder[idx + 1]);
             });
@@ -1417,6 +1490,28 @@ const App = {
             }
         });
         
+        // Shading parameters
+        const shadingEnableChk = document.getElementById('chk-shading-enable');
+        if (shadingEnableChk) {
+            shadingEnableChk.addEventListener('change', (e) => {
+                this.shading.enabled = e.target.checked;
+                this.updateBatchSummary();
+                this.invalidateShading();
+                if (this.imageLoaded) this.debouncedEvaluatePipeline();
+                this.saveSettingsToStorage();
+            });
+        }
+        const shadingKernelInput = document.getElementById('input-shading-kernel');
+        if (shadingKernelInput) {
+            shadingKernelInput.addEventListener('change', (e) => {
+                this.shading.kernelSize = Math.max(10, parseInt(e.target.value) || 10);
+                this.updateBatchSummary();
+                this.invalidateShading();
+                if (this.imageLoaded) this.debouncedEvaluatePipeline();
+                this.saveSettingsToStorage();
+            });
+        }
+
         // FFT parameters
         document.querySelectorAll('input[name="fft-enable"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
@@ -1426,13 +1521,6 @@ const App = {
                 if (this.imageLoaded) this.debouncedEvaluatePipeline();
                 this.saveSettingsToStorage();
             });
-        });
-        document.getElementById('input-fft-highpass').addEventListener('change', (e) => {
-            this.fft.highPassLimit = Math.max(0, parseInt(e.target.value) || 0);
-            this.updateBatchSummary();
-            this.invalidateFFT();
-            if (this.imageLoaded) this.debouncedEvaluatePipeline();
-            this.saveSettingsToStorage();
         });
         document.getElementById('input-fft-lowpass').addEventListener('change', (e) => {
             this.fft.lowPassLimit = Math.max(1, parseInt(e.target.value) || 1);
@@ -1478,6 +1566,11 @@ const App = {
             });
         });
         document.querySelectorAll('input[name="gray-display-mode"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                this.redraw();
+            });
+        });
+        document.querySelectorAll('input[name="shading-display-mode"]').forEach(radio => {
             radio.addEventListener('change', () => {
                 this.redraw();
             });
@@ -2434,11 +2527,23 @@ const App = {
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
                 }
+            } else if (this.activePage === 'shading') {
+                const displayModeRadio = document.querySelector('input[name="shading-display-mode"]:checked');
+                const displayMode = displayModeRadio ? displayModeRadio.value : 'shading';
+                if (displayMode === 'gray' && this.grayArray) {
+                    this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'blur' && this.shadingBlurArray) {
+                    this.drawProcessedROI(this.shadingBlurArray, rx1, ry1, w, h);
+                } else if (displayMode === 'shading' && this.shadingArray) {
+                    this.drawProcessedROI(this.shadingArray, rx1, ry1, w, h);
+                }
             } else if (this.activePage === 'noise') {
                 const displayModeRadio = document.querySelector('input[name="noise-display-mode"]:checked');
                 const displayMode = displayModeRadio ? displayModeRadio.value : 'smooth';
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'shading' && this.shadingArray) {
+                    this.drawProcessedROI(this.shadingArray, rx1, ry1, w, h);
                 } else if (displayMode === 'fft' && this.fftArray) {
                     this.drawProcessedROI(this.fftArray, rx1, ry1, w, h);
                 } else if (displayMode === 'smooth' && this.noiseArray) {
@@ -2449,6 +2554,8 @@ const App = {
                 const displayMode = displayModeRadio ? displayModeRadio.value : 'bin';
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'shading' && this.shadingArray) {
+                    this.drawProcessedROI(this.shadingArray, rx1, ry1, w, h);
                 } else if (displayMode === 'noise' && this.noiseArray) {
                     this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
                 } else if (displayMode === 'bin' && this.binArray) {
@@ -2459,6 +2566,8 @@ const App = {
                 const displayMode = displayModeRadio ? displayModeRadio.value : 'noiseFilter';
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'shading' && this.shadingArray) {
+                    this.drawProcessedROI(this.shadingArray, rx1, ry1, w, h);
                 } else if (displayMode === 'noise' && this.noiseArray) {
                     this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
                 } else if (displayMode === 'bin' && this.binArray) {
@@ -2471,6 +2580,8 @@ const App = {
                 const displayMode = displayModeRadio ? displayModeRadio.value : 'noiseFilter';
                 if (displayMode === 'gray' && this.grayArray) {
                     this.drawProcessedROI(this.grayArray, rx1, ry1, w, h);
+                } else if (displayMode === 'shading' && this.shadingArray) {
+                    this.drawProcessedROI(this.shadingArray, rx1, ry1, w, h);
                 } else if (displayMode === 'noise' && this.noiseArray) {
                     this.drawProcessedROI(this.noiseArray, rx1, ry1, w, h);
                 } else if (displayMode === 'bin' && this.binArray) {
@@ -3107,7 +3218,8 @@ const App = {
         batchLogText += `Conditions Summary:\n`;
         batchLogText += `- scale: ${this.umPerPx.toFixed(3)} μm/px\n`;
         batchLogText += `- roi: enabled=${this.roi.enabled}, bounds=(${this.roi.x1},${this.roi.y1}) to (${this.roi.x2},${this.roi.y2})\n`;
-        batchLogText += `- fft: enabled=${this.fft.enabled}, highpass=${this.fft.highPassLimit}px, lowpass=${this.fft.lowPassLimit}px\n`;
+        batchLogText += `- shading: enabled=${this.shading.enabled}, kernel=${this.shading.kernelSize}px\n`;
+        batchLogText += `- fft: enabled=${this.fft.enabled}, lowpass=${this.fft.lowPassLimit}px\n`;
         batchLogText += `- noise: enabled=${this.noise.enabled}, method=${this.noise.method}, size=${this.noise.kernelSize}\n`;
         batchLogText += `- binarization: channel=${this.binarization.channel}, method=${this.binarization.method}, fixedVal=${this.binarization.fixedValue}, otsu%=${this.binarization.otsuPercent}\n`;
         batchLogText += `- noiseFilter: white=${this.noiseFilter.whitePx}px, black=${this.noiseFilter.blackPx}px\n`;
@@ -3158,9 +3270,13 @@ const App = {
                 // 3. Grayscale
                 let gray = ImageProcessor.toGrayscale(roiImgData, this.binarization.channel);
                 
-                // 3.5. FFT Bandpass Filter
+                // 3.2. Shading Correction
+                const shadingResult = ImageProcessor.applyShadingCorrection(gray, W_ROI, H_ROI, this.shading.kernelSize, this.shading.enabled);
+                gray = shadingResult.corrected;
+
+                // 3.5. FFT Lowpass Filter
                 if (this.fft.enabled) {
-                    gray = ImageProcessor.fftBandpassFilter(gray, W_ROI, H_ROI, this.fft.highPassLimit, this.fft.lowPassLimit);
+                    gray = ImageProcessor.fftLowpassFilter(gray, W_ROI, H_ROI, this.fft.lowPassLimit);
                 }
                 
                 // 4. Noise Filter

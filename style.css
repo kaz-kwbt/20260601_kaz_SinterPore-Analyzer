@@ -122,6 +122,8 @@ body {
     padding: 0 20px;
     z-index: 50;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
 }
 
 .app-title-group {
@@ -897,6 +899,7 @@ input[type="number"]:focus, select:focus, textarea:focus {
 .app-container[data-active-page="scale"] .page-control[data-page="scale"],
 .app-container[data-active-page="roi"] .page-control[data-page="roi"],
 .app-container[data-active-page="grayscale"] .page-control[data-page="grayscale"],
+.app-container[data-active-page="shading"] .page-control[data-page="shading"],
 .app-container[data-active-page="noise"] .page-control[data-page="noise"],
 .app-container[data-active-page="binarization"] .page-control[data-page="binarization"],
 .app-container[data-active-page="noiseFilter"] .page-control[data-page="noiseFilter"],

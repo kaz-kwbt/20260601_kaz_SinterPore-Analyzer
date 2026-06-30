@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.6.2</span>
+                <span class="app-version">v1.7.0</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -62,6 +62,10 @@
                 <a href="#" class="nav-item" data-page="grayscale">
                     <span class="material-icons-round">filter_hdr</span>
                     <span class="nav-text" data-i18n="nav_grayscale">グレースケール設定</span>
+                </a>
+                <a href="#" class="nav-item" data-page="shading">
+                    <span class="material-icons-round">wb_sunny</span>
+                    <span class="nav-text" data-i18n="nav_shading">シェーディング補正</span>
                 </a>
                 <a href="#" class="nav-item" data-page="noise">
                     <span class="material-icons-round">filter_b_and_w</span>
@@ -407,6 +411,62 @@
                     </div>
                 </div>
 
+                <!-- PAGE 3.5: SHADING CORRECTION SETTINGS -->
+                <div class="sidebar-card glass-panel page-control" data-page="shading">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">visibility</span>
+                        <h2 data-i18n="header_shading_display">表示設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group vertical-radio-group" style="display:flex; flex-direction:column; gap:8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="shading-display-mode" value="original">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_original">元画像 (Original)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="shading-display-mode" value="gray">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="shading-display-mode" value="blur">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_blur">ぼかし画像 (Blurred background)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="shading-display-mode" value="shading" checked>
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_corrected">シェーディング補正画像</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-card glass-panel page-control" data-page="shading">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">wb_sunny</span>
+                        <h2 data-i18n="header_shading_condition">シェーディング補正設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <label class="checkbox-container mb-4">
+                            <input type="checkbox" id="chk-shading-enable">
+                            <span class="checkmark"></span>
+                            <span data-i18n="chk_shading_enable">シェーディング補正を有効にする</span>
+                        </label>
+                        <div class="input-group">
+                            <label for="input-shading-kernel" data-i18n="label_shading_kernel">カーネルサイズ (px)</label>
+                            <div class="number-input-wrapper">
+                                <input type="number" id="input-shading-kernel" value="150" min="10" step="10">
+                                <div class="step-controls">
+                                    <button class="step-up"><span class="material-icons-round">expand_less</span></button>
+                                    <button class="step-down"><span class="material-icons-round">expand_more</span></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- PAGE 4: NOISE REMOVAL SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="noise">
                     <div class="card-header">
@@ -426,6 +486,11 @@
                                 <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
                             </label>
                             <label class="radio-label">
+                                <input type="radio" name="noise-display-mode" value="shading">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_corrected">シェーディング補正画像</span>
+                            </label>
+                            <label class="radio-label">
                                 <input type="radio" name="noise-display-mode" value="fft">
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_fft">FFTバンドパス画像 (FFT Bandpass)</span>
@@ -439,11 +504,11 @@
                     </div>
                 </div>
 
-                <!-- FFT BANDPASS FILTER SETTINGS -->
+                <!-- FFT LOWPASS FILTER SETTINGS -->
                 <div class="sidebar-card glass-panel page-control" data-page="noise">
                     <div class="card-header">
                         <span class="material-icons-round header-icon">waves</span>
-                        <h2 data-i18n="header_fft">FFTバンドパスフィルタ</h2>
+                        <h2 data-i18n="header_fft">FFTローパスフィルタ</h2>
                     </div>
                     <div class="card-content">
                         <div class="radio-group mb-4">
@@ -457,10 +522,6 @@
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_disabled">なし (None)</span>
                             </label>
-                        </div>
-                        <div class="input-group mb-3" id="fft-highpass-group">
-                            <label for="input-fft-highpass" data-i18n="label_fft_highpass">ハイパスフィルタ制限 (Low Cutoff px)</label>
-                            <input type="number" id="input-fft-highpass" value="0" min="0" step="1">
                         </div>
                         <div class="input-group" id="fft-lowpass-group">
                             <label for="input-fft-lowpass" data-i18n="label_fft_lowpass">ローパスフィルタ制限 (High Cutoff px)</label>
@@ -539,6 +600,11 @@
                                 <input type="radio" name="bin-display-mode" value="gray">
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="bin-display-mode" value="shading">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_corrected">シェーディング補正画像</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="bin-display-mode" value="noise">
@@ -636,6 +702,11 @@
                                 <input type="radio" name="noise-filter-display-mode" value="gray">
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="noise-filter-display-mode" value="shading">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_corrected">シェーディング補正画像</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="noise-filter-display-mode" value="noise">
@@ -756,6 +827,11 @@
                                 <input type="radio" name="limit-display-mode" value="gray">
                                 <span class="custom-radio"></span>
                                 <span data-i18n="opt_gray">グレースケール画像 (Grayscale)</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="limit-display-mode" value="shading">
+                                <span class="custom-radio"></span>
+                                <span data-i18n="opt_shading_corrected">シェーディング補正画像</span>
                             </label>
                             <label class="radio-label">
                                 <input type="radio" name="limit-display-mode" value="noise">
@@ -940,6 +1016,10 @@
                             <div class="summary-item">
                                 <span class="summary-lbl" data-i18n="summary_gray">グレースケール:</span>
                                 <span class="summary-val" id="summary-gray">輝度 (Luminance)</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-lbl" data-i18n="summary_shading">シェーディング補正:</span>
+                                <span class="summary-val" id="summary-shading">なし (None)</span>
                             </div>
                             <div class="summary-item">
                                 <span class="summary-lbl" data-i18n="summary_noise">ノイズ除去:</span>
