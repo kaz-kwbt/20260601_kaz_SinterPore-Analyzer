@@ -2272,9 +2272,12 @@ const App = {
 
     clearCachesAndResults() {
         this.grayArray = null;
+        this.shadingArray = null;
+        this.shadingBlurArray = null;
         this.fftArray = null;
         this.noiseArray = null;
         this.binArray = null;
+        this.noiseFilterArray = null;
         this.components = [];
         this.selectedCompId = null;
         this.scaleStart = null;
@@ -2382,6 +2385,7 @@ const App = {
         
         this.invalidateGrayscale();
         this.runGrayscaleStage(roiImageData);
+        this.runShadingCorrectionStage(W_ROI, H_ROI);
         this.runFFTStage(W_ROI, H_ROI);
         this.runNoiseStage(W_ROI, H_ROI);
         this.runBinarizationStage();
