@@ -429,6 +429,27 @@ body {
     gap: 10px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+.sidebar-card.collapsed .card-content {
+    display: none;
+}
+
+.sidebar-card.collapsed .card-header {
+    border-bottom: none;
+}
+
+.card-toggle-icon {
+    margin-left: auto;
+    font-size: 20px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.sidebar-card.collapsed .card-toggle-icon {
+    transform: rotate(-90deg);
 }
 
 .header-icon {
@@ -1192,12 +1213,12 @@ input[type="number"]:focus, select:focus, textarea:focus {
 
 /* Selected active file highlight */
 .data-table tbody tr.active-file {
-    background: rgba(59, 130, 246, 0.16) !important;
-    border-left: 3px solid var(--primary) !important;
+    background: rgba(245, 158, 11, 0.22) !important;
+    border-left: 3px solid #f59e0b !important;
 }
 .data-table tbody tr.active-file td {
     font-weight: 600;
-    color: #ffffff !important;
+    color: #ffd8a8 !important;
 }
 
 /* Vertical radio button group */

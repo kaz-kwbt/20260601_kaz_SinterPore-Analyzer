@@ -30,7 +30,7 @@ const I18n = {
             page_roi_title: "ROI設定",
             page_grayscale_title: "グレースケール設定",
             page_noise_title: "平滑化",
-            page_binarize_title: "2値化設定",
+            page_binarization_title: "2値化設定",
             page_limit_title: "下限面積設定",
             page_batch_title: "一括処理",
             header_gray_display: "表示設定",
@@ -43,6 +43,8 @@ const I18n = {
             btn_load_image: "画像読込",
             btn_load_settings: "設定読込",
             btn_save_settings_as: "設定別名保存",
+            btn_reset_defaults: "初期値に戻す",
+            confirm_reset_defaults: "設定を初期値に戻しますか？",
             loaded_file: "読込中:",
             header_language: "言語設定",
             header_history: "一括処理条件履歴",
@@ -171,7 +173,7 @@ const I18n = {
             page_roi_title: "ROI Settings",
             page_grayscale_title: "Grayscale Settings",
             page_noise_title: "Smoothing",
-            page_binarize_title: "Binarization",
+            page_binarization_title: "Binarization",
             page_limit_title: "Lower Limit Area",
             page_batch_title: "Batch Processing",
             header_gray_display: "Display Settings",
@@ -184,6 +186,8 @@ const I18n = {
             btn_load_image: "Load Image",
             btn_load_settings: "Load Settings",
             btn_save_settings_as: "Save Settings As",
+            btn_reset_defaults: "Reset to Defaults",
+            confirm_reset_defaults: "Are you sure you want to reset all settings to defaults?",
             loaded_file: "Loaded:",
             header_language: "Language Settings",
             header_history: "Batch Run History",
@@ -312,7 +316,7 @@ const I18n = {
             page_roi_title: "ROI设置",
             page_grayscale_title: "灰度设置",
             page_noise_title: "平滑化",
-            page_binarize_title: "二值化设置",
+            page_binarization_title: "二值化设置",
             page_limit_title: "下限面积设置",
             page_batch_title: "批量处理",
             header_gray_display: "显示设置",
@@ -325,6 +329,8 @@ const I18n = {
             btn_load_image: "导入图片",
             btn_load_settings: "导入设置",
             btn_save_settings_as: "另存设置",
+            btn_reset_defaults: "恢复默认值",
+            confirm_reset_defaults: "您确定要将所有设置恢复为默认值吗？",
             loaded_file: "已载入:",
             header_language: "语言设置",
             header_history: "批量处理条件历史记录",
@@ -451,6 +457,48 @@ const I18n = {
     },
     get(key) {
         return (this.translations[this.currentLang] && this.translations[this.currentLang][key]) || key;
+    }
+};
+
+const DefaultConfig = {
+    scale: {
+        umPerPx: 0.025,
+        actualLength: 10.0
+    },
+    roi: {
+        enabled: true,
+        x1: 0,
+        y1: 0,
+        x2: 2560,
+        y2: 1740
+    },
+    shading: {
+        enabled: false,
+        kernelSize: 150
+    },
+    fft: {
+        enabled: false,
+        lowPassLimit: 300
+    },
+    noise: {
+        enabled: true,
+        method: 'none',
+        kernelSize: 5
+    },
+    binarization: {
+        channel: 'luminance',
+        method: 'otsu',
+        fixedValue: 128,
+        otsuPercent: 100,
+        grayscalePreview: true
+    },
+    limit: {
+        solidPx: 0,
+        voidPx: 0
+    },
+    noiseFilter: {
+        whitePx: 113,
+        blackPx: 113
     }
 };
 
@@ -820,8 +868,8 @@ const App = {
         const needsFFT = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         const needsNoise = ['noise', 'binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         const needsBinarization = ['binarization', 'noiseFilter', 'limit'].includes(this.activePage);
-        const needsNoiseFilter = ['noiseFilter', 'limit'].includes(this.activePage);
-        const needsCCL = ['noiseFilter', 'limit'].includes(this.activePage);
+        const needsNoiseFilter = ['binarization', 'noiseFilter', 'limit'].includes(this.activePage);
+        const needsCCL = ['binarization', 'noiseFilter', 'limit'].includes(this.activePage);
         
         if (needsGrayscale) {
             if (!this.isGrayscaleStageValid || !this.grayArray) {
@@ -883,6 +931,10 @@ const App = {
             } catch (e) {
                 console.warn('Failed to parse cached settings:', e);
             }
+        }
+        const notesArea = document.getElementById('input-batch-notes');
+        if (notesArea) {
+            notesArea.value = '';
         }
     },
     
@@ -1238,6 +1290,22 @@ const App = {
 
     // --- UI EVENT BINDINGS ---
     bindEvents() {
+        // Collapsible sidebar cards
+        document.querySelectorAll('.sidebar-card').forEach(card => {
+            const header = card.querySelector('.card-header');
+            if (header) {
+                if (!header.querySelector('.card-toggle-icon')) {
+                    const arrow = document.createElement('span');
+                    arrow.className = 'material-icons-round card-toggle-icon';
+                    arrow.innerText = 'keyboard_arrow_down';
+                    header.appendChild(arrow);
+                }
+                header.addEventListener('click', () => {
+                    card.classList.toggle('collapsed');
+                });
+            }
+        });
+
         // Navigation clicks
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -1319,6 +1387,13 @@ const App = {
             const savedName = await FileSystemHelper.saveSettingsAsFile(config);
             if (savedName) {
                 this.logMessage(`Saved configuration as: ${savedName}`);
+            }
+        });
+        
+        document.getElementById('btn-reset-defaults').addEventListener('click', () => {
+            if (confirm(I18n.get('confirm_reset_defaults') || '設定を初期値に戻しますか？')) {
+                this.applyJSONConfig(DefaultConfig, true);
+                this.logMessage('Reset settings to default values.');
             }
         });
         
@@ -2165,9 +2240,9 @@ const App = {
         const rx = pt.x - rx1;
         const ry = pt.y - ry1;
         
-        if (rx >= 0 && rx < w && ry >= 0 && ry < h && this.binArray) {
+        if (rx >= 0 && rx < w && ry >= 0 && ry < h && this.noiseFilterArray) {
             const idx = ry * w + rx;
-            const targetVal = this.binArray[idx]; // 0 or 255
+            const targetVal = this.noiseFilterArray[idx]; // 0 or 255
             
             // BFS to identify clicked connected region
             const visited = new Uint8Array(w * h);
@@ -2196,7 +2271,7 @@ const App = {
                     const ny = cy + dy8[i];
                     if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
                         const nIdx = ny * w + nx;
-                        if (visited[nIdx] === 0 && this.binArray[nIdx] === targetVal) {
+                        if (visited[nIdx] === 0 && this.noiseFilterArray[nIdx] === targetVal) {
                             visited[nIdx] = 1;
                             queue[tail++] = nIdx;
                         }
@@ -3149,9 +3224,30 @@ const App = {
             // Delete click
             tr.querySelector('.delete-row-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
+                const deletedFile = this.batchFiles[idx];
+                const isCurrent = this.currentLoadedFile && 
+                                  this.currentLoadedFile.name === deletedFile.name && 
+                                  this.currentLoadedFile.size === deletedFile.size;
+                
                 this.batchFiles.splice(idx, 1);
                 this.renderBatchFilesTable();
                 this.updateBatchRunButtonState();
+                
+                if (isCurrent) {
+                    this.currentLoadedFile = null;
+                    this.imageName = '';
+                    this.imageLoaded = false;
+                    this.imageElement = null;
+                    this.clearCachesAndResults();
+                    
+                    const loadedImageInfo = document.getElementById('loaded-image-info');
+                    if (loadedImageInfo) loadedImageInfo.classList.add('hidden');
+                    
+                    const placeholder = document.getElementById('canvas-placeholder');
+                    if (placeholder) placeholder.classList.remove('hidden');
+                    
+                    this.redraw();
+                }
             });
             
             // Row click triggers previewing this file
@@ -3214,7 +3310,7 @@ const App = {
         this.logMessage(`Starting batch processing for ${total} images...`);
         this.logMessage(`Conditions: μm/px = ${this.umPerPx.toFixed(3)}, Method = ${this.binarization.method}`);
         
-        let batchLogText = `SinterPore-Analyzer Batch Processing Log\n`;
+        let batchLogText = `SinterPore-Analyzer Batch Processing Log (v1.7.2)\n`;
         batchLogText += `Timestamp: ${date.toLocaleString()}\n`;
         batchLogText += `Total files: ${total}\n`;
         batchLogText += `Notes: ${document.getElementById('input-batch-notes').value}\n`;
@@ -3423,6 +3519,13 @@ const App = {
         // Re-enable run btn
         runBtn.disabled = false;
         progressBox.classList.add('hidden');
+        
+        // Reset notes area to blank
+        const notesArea = document.getElementById('input-batch-notes');
+        if (notesArea) {
+            notesArea.value = '';
+        }
+        this.saveSettingsToStorage();
     },
 
     loadImageOffscreen(file) {

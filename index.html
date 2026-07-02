@@ -26,7 +26,7 @@
             <div class="app-title-group">
                 <span class="app-logo-icon material-icons-round">blur_circular</span>
                 <h1 class="app-title">SinterPore Analyzer</h1>
-                <span class="app-version">v1.7.1</span>
+                <span class="app-version">v1.7.2</span>
             </div>
             <div class="header-nav-buttons" style="margin-left: auto; display: flex; gap: 8px; align-items: center; margin-right: 16px;">
                 <button class="icon-btn" id="btn-prev-page" title="前のページ">
@@ -124,8 +124,35 @@
                 <div class="sidebar-page-title-card glass-panel">
                     <h1 class="sidebar-page-title" id="sidebar-page-title" data-i18n="page_general_title">その他設定</h1>
                 </div>
+
+                <!-- LANGUAGE SELECT PANEL (Moved to top, above file list) -->
+                <div class="sidebar-card glass-panel collapsed" id="common-language-card">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">language</span>
+                        <h2 data-i18n="header_language">言語設定</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="radio-group language-select">
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="ja" checked>
+                                <span class="custom-radio"></span>
+                                <span>日本語</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="en">
+                                <span class="custom-radio"></span>
+                                <span>English</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ui-lang" value="zh">
+                                <span class="custom-radio"></span>
+                                <span>中文 (简体)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
                 
-                <!-- TOP COMMON ACTIONS PANEL (Shared File & Config List Card) -->
+                <!-- TOP COMMON ACTIONS PANEL (Shared File List Card) -->
                 <div class="sidebar-card glass-panel" id="common-load-card">
                     <div class="card-header">
                         <span class="material-icons-round header-icon">photo_library</span>
@@ -151,7 +178,7 @@
                         </div>
                         
                         <!-- File Action Buttons -->
-                        <div class="batch-list-actions mb-3" style="padding:0; border-bottom:none; display:flex; gap:8px;">
+                        <div class="batch-list-actions" style="padding:0; border-bottom:none; display:flex; gap:8px;">
                             <button class="action-btn" id="btn-add-files" style="flex:1; padding:8px; font-size:11px;">
                                 <span class="material-icons-round" style="font-size:16px;">add_to_photos</span>
                                 <span data-i18n="btn_add_files">ファイル追加</span>
@@ -165,57 +192,40 @@
                                 <span data-i18n="btn_clear_list">クリア</span>
                             </button>
                         </div>
-                        
+                    </div>
+                </div>
+
+                <!-- CONFIG MANAGEMENT PANEL (Shared Config Card) -->
+                <div class="sidebar-card glass-panel collapsed" id="common-config-card">
+                    <div class="card-header">
+                        <span class="material-icons-round header-icon">settings</span>
+                        <h2 data-i18n="header_config_io">処理条件設定管理</h2>
+                    </div>
+                    <div class="card-content">
                         <!-- Settings Config Load / Save -->
                         <div id="config-drop-zone" style="border: 2px dashed transparent; border-radius: 12px; transition: var(--transition-smooth);">
-                            <div class="card-header border-top" style="padding: 12px 0 6px 0; border-bottom: none; display:flex; align-items:center; gap:6px;">
-                                <span class="material-icons-round header-icon" style="font-size:16px;">settings</span>
-                                <h2 data-i18n="header_config_io" style="font-size:11px; margin:0; text-transform:none;">処理条件設定管理</h2>
-                            </div>
                             <div class="io-buttons-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; padding: 0 0 10px 0;">
                                 <button class="action-btn" id="btn-load-config" style="padding:8px 10px; font-size:12px;">
                                     <span class="material-icons-round" style="font-size:16px;">settings_backup_restore</span>
                                     <span data-i18n="btn_load_settings">設定読込</span>
                                 </button>
-                                <button class="action-btn btn-primary" id="btn-save-config" style="padding:8px 10px; font-size:12px;">
+                                <button class="action-btn" id="btn-save-config" style="padding:8px 10px; font-size:12px;">
                                     <span class="material-icons-round" style="font-size:16px;">save</span>
                                     <span data-i18n="btn_save_settings_as">設定別名保存</span>
                                 </button>
                             </div>
+                            <button class="action-btn w-100 hover-warning" id="btn-reset-defaults" style="padding:8px 10px; font-size:12px; margin-top:4px;">
+                                <span class="material-icons-round" style="font-size:16px;">restart_alt</span>
+                                <span data-i18n="btn_reset_defaults">初期値に戻す</span>
+                            </button>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Hidden Inputs for picking files/folders -->
                 <input type="file" id="input-files-picker" multiple accept="image/*" class="hidden">
                 <input type="file" id="input-folder-picker" webkitdirectory directory class="hidden">
 
                 <!-- PAGE 1: GENERAL SETTINGS -->
-                <div class="sidebar-card glass-panel page-control" data-page="general">
-                    <div class="card-header">
-                        <span class="material-icons-round header-icon">language</span>
-                        <h2 data-i18n="header_language">言語設定</h2>
-                    </div>
-                    <div class="card-content">
-                        <div class="radio-group language-select">
-                            <label class="radio-label">
-                                <input type="radio" name="ui-lang" value="ja" checked>
-                                <span class="custom-radio"></span>
-                                <span>日本語</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="ui-lang" value="en">
-                                <span class="custom-radio"></span>
-                                <span>English</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="ui-lang" value="zh">
-                                <span class="custom-radio"></span>
-                                <span>中文 (简体)</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
                 
                 <div class="sidebar-card glass-panel page-control" data-page="general">
                     <div class="card-header">
@@ -968,6 +978,7 @@
                 </div>
 
                 <!-- PAGE 7: BATCH PROCESSING -->
+                <!-- Card 1: Output Settings -->
                 <div class="sidebar-card glass-panel page-control" data-page="batch">
                     <div class="card-header">
                         <span class="material-icons-round header-icon">save_alt</span>
@@ -997,8 +1008,11 @@
                             <textarea id="input-batch-notes" rows="2" placeholder="メモを入力してください..."></textarea>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <!-- Card 2: Batch Conditions Summary -->
+                <div class="sidebar-card glass-panel page-control" data-page="batch">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">playlist_play</span>
                         <h2 data-i18n="header_batch_conditions">一括処理条件サマリー</h2>
                     </div>
@@ -1056,8 +1070,11 @@
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card-header border-top">
+                <!-- Card 3: Logger -->
+                <div class="sidebar-card glass-panel page-control" data-page="batch">
+                    <div class="card-header">
                         <span class="material-icons-round header-icon">terminal</span>
                         <h2 data-i18n="header_log">処理ログ</h2>
                     </div>
